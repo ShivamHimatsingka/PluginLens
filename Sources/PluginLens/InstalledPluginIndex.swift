@@ -5,6 +5,8 @@ struct SearchDirectories: Sendable {
     var audioUnits: [URL]
     var vst: [URL]
     var vst3: [URL]
+    /// Folders of apps whose `Contents/PlugIns/*.appex` may be Audio Unit v3 extensions.
+    var applications: [URL] = []
 
     static var standard: SearchDirectories {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -15,7 +17,8 @@ struct SearchDirectories: Sendable {
         return SearchDirectories(
             audioUnits: dirs("Components") + [URL(fileURLWithPath: "/System/Library/Components")],
             vst: dirs("VST"),
-            vst3: dirs("VST3"))
+            vst3: dirs("VST3"),
+            applications: [URL(fileURLWithPath: "/Applications"), home.appendingPathComponent("Applications")])
     }
 }
 
@@ -47,6 +50,9 @@ struct InstalledPluginIndex: Sendable {
             for bundle in Self.bundles(in: dir, ext: "component") {
                 components.append(contentsOf: Self.components(in: bundle))
             }
+        }
+        for dir in directories.applications {
+            for appex in Self.appExtensions(in: dir) { components.append(contentsOf: Self.components(in: appex)) }
         }
         for c in components { byKey[c.key, default: []].append(c) }
         for (dirs, format, ext) in [(directories.vst, PluginFormat.vst, "vst"), (directories.vst3, .vst3, "vst3")] {
@@ -120,12 +126,24 @@ struct InstalledPluginIndex: Sendable {
         return out.sorted { $0.path < $1.path }
     }
 
+    /// Audio Unit v3 plugins ship as app extensions inside host apps, one level below the apps folder.
+    static func appExtensions(in dir: URL) -> [URL] {
+        let fm = FileManager.default
+        guard let apps = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return [] }
+        return apps.filter { $0.pathExtension == "app" }.flatMap { app -> [URL] in
+            let plugins = app.appendingPathComponent("Contents/PlugIns")
+            return ((try? fm.contentsOfDirectory(at: plugins, includingPropertiesForKeys: nil)) ?? []).filter { $0.pathExtension == "appex" }
+        }
+    }
+
     static func components(in bundle: URL) -> [InstalledComponent] {
         let plistURL = bundle.appendingPathComponent("Contents/Info.plist")
         guard let data = try? Data(contentsOf: plistURL),
               let plist = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any]
         else { return [] }
-        let declared = plist["AudioComponents"] as? [[String: Any]] ?? []
+        // Audio Units: top-level AudioComponents. AUv3 extensions: NSExtension > NSExtensionAttributes > AudioComponents.
+        let attrs = (plist["NSExtension"] as? [String: Any])?["NSExtensionAttributes"] as? [String: Any]
+        let declared = plist["AudioComponents"] as? [[String: Any]] ?? attrs?["AudioComponents"] as? [[String: Any]] ?? []
         let short = (plist["CFBundleShortVersionString"] as? String)?.trimmingCharacters(in: .whitespaces)
         let build = (plist["CFBundleVersion"] as? String)?.trimmingCharacters(in: .whitespaces)
         let version = [short, build].compactMap { $0 }.first { !$0.isEmpty }

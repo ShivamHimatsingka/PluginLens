@@ -156,4 +156,13 @@ final class VersionLookupTests: XCTestCase {
         try Data("not a plist".utf8).write(to: bad.appendingPathComponent("Info.plist"))
         XCTAssertTrue(fake.index().components.isEmpty)
     }
+
+    func testAUv3AppExtensionIsFound() throws {
+        let fake = try FakeInstall()
+        try fake.addAUv3(app: "Cool Synth", type: "aumu", subtype: "Cool", manufacturer: "Acme", name: "Acme: Cool Synth", version: "3.2.1")
+        let e = PluginResolver.resolve(record("Cool Synth", "Acme", "aumu", "Cool"), index: fake.index())
+        XCTAssertEqual(e.status, .installed)
+        XCTAssertEqual(e.installedVersion, "3.2.1")
+        XCTAssertEqual(e.manufacturer, "Acme")
+    }
 }

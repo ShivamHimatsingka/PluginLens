@@ -53,9 +53,17 @@ the project does contain each plugin's saved AU state as an embedded XML plist (
   - `pluginVersion="x.y.z"` in JUCE XML state: Valhalla plugins, Neural DSP Archetype/Mantra/Parallax/Nameless, oeksound soothe2
   - `"productVersion":"x.y.z"` in a JSON header: Serum 2
   - `PlugVersion x.y.z` text line: Toontrack Superior Drummer
-  - `Version="x.y.z"` attributes (dotted, 2-4 parts, preceded by a non-letter)
-- Plugins with nothing found: FabFilter, UAD, iZotope, Native Instruments, Soundtoys, Antares and others. They store binary or
-  vendor-specific state with no discoverable version.
+  - `Version="x.y.z"` / `PluginVersion="x.y.z"` attributes (dotted, 2-4 parts, preceded by a non-letter)
+  - `###NeuralAmpModeler###`, a little-endian u32 length, then the version string at the head of the state: Neural Amp Modeler and derivatives (e.g. 0.7.13)
+  - `Pianoteq 9.2.5/20260909` banner in the state: Pianoteq
+- Plugins with nothing found, and what the state actually contains (inspected, including decompressing zlib payloads):
+  - FabFilter: `FFBS` binary header, no version string.
+  - Universal Audio UADx: `uapw_chunk_version` (state-format version) only.
+  - iZotope Ozone/Neutron/RX: zlib-compressed JSON; `Major Version`/`Minor Version`/`Param Version` are state-schema versions (RX 11.3 stores 1.1).
+  - Native Instruments Kontakt/Massive: opaque `vstdata`. Soundtoys: opaque `soundtoys-data`. Bertom Denoiser: raw parameters.
+  - Antares Auto-Tune: `ChunkVersion` attributes list state-compatibility chunks, not a plugin version, so they are ignored.
+  - AmpliTube: `Program Version="2"` is the preset format version.
+  A version could still exist inside those payloads in a form I could not recognise; "not stored" means "not found", and new conventions are easy to add.
 - Validation: across the 55 readable projects in the sample library, every extracted version equals the version installed on this machine
   (0 disagreements), which is the expected result for an up-to-date machine and independent confirmation that these fields hold the plugin's version.
   The disagreement path is covered by unit tests with fake installs, because no real project here was saved with an older plugin.

@@ -97,7 +97,16 @@ final class FakeInstall {
         try data.write(to: bundle.appendingPathComponent("Contents/Info.plist"))
     }
 
+    /// Writes `<root>/Apps/<app>.app/Contents/PlugIns/<appex>.appex` declaring an AUv3 component.
+    func addAUv3(app: String, type: String, subtype: String, manufacturer: String, name: String, version: String) throws {
+        let appex = root.appendingPathComponent("Apps/\(app).app/Contents/PlugIns/Ext.appex/Contents")
+        try FileManager.default.createDirectory(at: appex, withIntermediateDirectories: true)
+        let plist: [String: Any] = ["CFBundleShortVersionString": version, "NSExtension": ["NSExtensionAttributes": ["AudioComponents": [
+            ["type": type, "subtype": subtype, "manufacturer": manufacturer, "name": name]]]]]
+        try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0).write(to: appex.appendingPathComponent("Info.plist"))
+    }
+
     func index(logicVersion: String? = "12.2") -> InstalledPluginIndex {
-        InstalledPluginIndex(directories: directories, logicVersion: logicVersion)
+        InstalledPluginIndex(directories: SearchDirectories(audioUnits: [au], vst: [vst], vst3: [vst3], applications: [root.appendingPathComponent("Apps")]), logicVersion: logicVersion)
     }
 }

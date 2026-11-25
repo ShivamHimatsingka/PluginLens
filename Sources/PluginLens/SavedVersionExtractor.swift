@@ -19,8 +19,13 @@ enum SavedVersionExtractor {
         Pattern(needle: "pluginVersion=\"", source: "pluginVersion attribute", terminators: [0x22], boundary: false),
         Pattern(needle: "\"productVersion\":\"", source: "productVersion field", terminators: [0x22], boundary: false),
         Pattern(needle: "PlugVersion ", source: "PlugVersion line", terminators: [0x0A, 0x0D, 0x20], boundary: false),
+        Pattern(needle: "PluginVersion=\"", source: "PluginVersion attribute", terminators: [0x22], boundary: true),
         Pattern(needle: "Version=\"", source: "Version attribute", terminators: [0x22], boundary: true),
+        Pattern(needle: "Pianoteq ", source: "Pianoteq state banner", terminators: [0x2F], boundary: false),
     ]
+    /// iPlug2-based plugins (Neural Amp Modeler and derivatives) start their state with this marker, then a
+    /// little-endian u32 length and the plugin version string.
+    private static let iPlugMarker = Data("###NeuralAmpModeler###".utf8)
     private static let maxScan = 8 * 1024 * 1024
 
     /// Every embedded plugin-state plist in the file, keyed by the same key as `RawPluginRecord.key`.
@@ -51,6 +56,16 @@ enum SavedVersionExtractor {
 
     static func find(in blob: Data) -> SavedVersion? {
         let hay = blob.count > maxScan ? blob.prefix(maxScan) : blob
+        if let m = hay.range(of: iPlugMarker, in: hay.startIndex..<min(hay.endIndex, hay.startIndex + 64)) {
+            let lenStart = m.upperBound
+            if hay.distance(from: lenStart, to: hay.endIndex) >= 4 {
+                let len = (0..<4).reduce(0) { $0 | Int(hay[hay.index(lenStart, offsetBy: $1)]) << (8 * $1) }
+                let vStart = hay.index(lenStart, offsetBy: 4)
+                if len > 0, len <= 24, hay.distance(from: vStart, to: hay.endIndex) >= len,
+                   let v = String(data: hay.subdata(in: vStart..<hay.index(vStart, offsetBy: len)), encoding: .utf8),
+                   isDottedVersion(v) { return SavedVersion(version: v, source: "plugin state header") }
+            }
+        }
         for p in patterns {
             var from = hay.startIndex
             let needle = Data(p.needle.utf8)

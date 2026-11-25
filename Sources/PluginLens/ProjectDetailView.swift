@@ -114,15 +114,20 @@ struct ProjectDetailView: View {
                     }
                     .help(p.note ?? p.name)
                 }
+                .width(min: 140, ideal: 180)
                 TableColumn("Manufacturer", value: \.manufacturer) { p in Text(p.manufacturer) }
+                    .width(min: 90, ideal: 130)
                 TableColumn("Format", value: \.formatText) { p in Text(p.formatText) }
+                    .width(min: 120, ideal: 170)
                 TableColumn("Saved with", value: \.savedVersionText) { p in
                     Text(p.savedVersionText).monospacedDigit().foregroundStyle(p.savedVersion == nil ? .secondary : .primary)
                         .help(p.savedVersionSource.map { "Read from: \($0)" } ?? "This plugin does not write its version into the project.")
                 }
+                .width(min: 90, ideal: 120)
                 TableColumn("Installed version", value: \.versionText) { p in
                     Text(p.versionText).monospacedDigit().foregroundStyle(p.installedVersion == nil ? .secondary : .primary)
                 }
+                .width(min: 100, ideal: 130)
                 TableColumn("Version check", value: \.checkRank) { p in
                     HStack(spacing: 4) {
                         if p.versionCheck.needsAttention { Image(systemName: "arrow.triangle.2.circlepath") }
@@ -131,6 +136,7 @@ struct ProjectDetailView: View {
                     .foregroundStyle(checkColor(p.versionCheck))
                     .help(p.versionCheck == .notStored ? "The project has no version for this plugin." : "")
                 }
+                .width(min: 100, ideal: 125)
                 TableColumn("Status", value: \.statusRank) { p in
                     Text(p.statusText)
                         .fontWeight(p.needsAttention ? .semibold : .regular)

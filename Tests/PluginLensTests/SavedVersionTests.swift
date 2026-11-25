@@ -33,6 +33,14 @@ final class SavedVersionTests: XCTestCase {
         XCTAssertEqual(SavedVersionExtractor.find(in: Data(#"<Hero Version="1.0.2" x="1"/>"#.utf8))?.version, "1.0.2")
     }
 
+    func testIPlugStateHeaderAndPianoteqBanner() {
+        var nam = Data([0x16, 0, 0, 0]); nam.append(Data("###NeuralAmpModeler###".utf8)); nam.append(Data([6, 0, 0, 0])); nam.append(Data("0.7.13".utf8)); nam.append(Data([0, 0]))
+        XCTAssertEqual(SavedVersionExtractor.find(in: nam), SavedVersion(version: "0.7.13", source: "plugin state header"))
+        var bad = Data([0x16, 0, 0, 0]); bad.append(Data("###NeuralAmpModeler###".utf8)); bad.append(Data([200, 0, 0, 0])); bad.append(Data("0.7.13".utf8))
+        XCTAssertNil(SavedVersionExtractor.find(in: bad), "an implausible length must not be trusted")
+        XCTAssertEqual(SavedVersionExtractor.find(in: Data("\0\0Pianoteq 9.2.5/20260909\0".utf8))?.version, "9.2.5")
+    }
+
     func testDoesNotMistakeFormatVersionsForPluginVersions() {
         // XML declaration, chunk format versions, bare integers and unrelated words must not be read as versions.
         XCTAssertNil(SavedVersionExtractor.find(in: Data(#"<?xml version="1.0" encoding="UTF-8"?>"#.utf8)))

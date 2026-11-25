@@ -10,7 +10,7 @@ struct PluginLensApp: App {
                 .environment(model)
                 .frame(minWidth: 860, minHeight: 480)
         }
-        .defaultSize(width: 1100, height: 680)
+        .defaultSize(width: 1280, height: 700)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Open Project…") { model.chooseProject() }
