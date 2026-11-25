@@ -34,6 +34,8 @@ Your DAW only tells you after it fails to load something. Plugin Lens answers up
 | FL Studio | `.flp` | A real FL Studio 20.8.4 project with native plugins and wrapped VST2 and VST3 plugins. |
 | Waveform (Tracktion) | `.tracktionedit` | Three public edits (built-in plugins, VST plugin entries, racks). |
 | Ardour, Mixbus | `.ardour` | Two public sessions (LV2 and built-in processors). AU and VST3 processors, as saved on macOS, were not seen. |
+| Cubase, Nuendo | `.cpr`, `.npr` | One real Cubase 10.5 project (VST3 and bundled Steinberg plugins, saving version). Nuendo uses the same file layout but no Nuendo file was available. |
+| Bitwig Studio | `.bwproject` | One real Bitwig 5.3 project with a VST3 plugin (name, class ID, the plugin version that saved it, and its saved state). Bitwig's own devices and AU/CLAP plugins were not seen, so only VST3 plugins are listed. |
 | LMMS | `.mmp`, `.mmpz` | Four public demo projects. |
 | DAWproject (Bitwig Studio, Studio One, Cubase, Nuendo and others export it) | `.dawproject` | The official schema (`Project.xsd`); no real exported file was available, only a schema-valid sample. |
 | Pro Tools | `.txt` from File > Export > Session Info as Text | A small real export. The plug-in listing table (manufacturer, name, **version**, format) is covered by hand-written examples only. |
@@ -43,12 +45,12 @@ Where a row says something wasn't checked, the support follows the format as doc
 or an *uncertain* row, not a confident wrong answer. If a project is read wrongly, please open an issue (the DAW version and the first lines of the file are enough).
 
 **Listed but not readable.** These are shown in the sidebar with an explanation so you can see they were skipped: Pro Tools sessions (`.ptx`: export Session Info as Text instead),
-Cubase (`.cpr`), Nuendo (`.npr`), Bitwig (`.bwproject`), Studio One (`.song`), Cakewalk (`.cwp`) and Reason. For Bitwig, Studio One, Cubase and Nuendo the simplest route is to
-export the project as a **DAWproject** file and open that.
+Studio One (`.song`), Cakewalk (`.cwp`) and Reason (`.reason`). I could not find a public sample of a Studio One or Cakewalk project, and a Reason song keeps its device list in a
+compressed part of the file that isn't decoded. For Studio One (6.5 and later) the simplest route is to export the song as a **DAWproject** file and open that.
 
 ## Install
 
-1. Download `PluginLens-0.4.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
+1. Download `PluginLens-0.5.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
 2. The app is ad-hoc signed and **not notarized**, so macOS will block the first launch. Right-click the app, choose **Open**, then **Open** again; or run:
 
    ```bash
@@ -125,7 +127,7 @@ Logic version and, if you can share it, the output of `xxd` on the first 128 byt
 
 ## Tests
 
-109 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
+119 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
 bundles in a temp folder (so results don't depend on your machine), discovery, per-project failure isolation, and exports.
 Fixtures in `Tests/Fixtures` are built by `Tools/make_fixtures.py`: only about 40 bytes per plugin record are kept; track names, text, plugin state and everything else
 are dropped (ProjectData never contains audio). `mixed_missing` has one manufacturer code rewritten so it is guaranteed not to be installed.

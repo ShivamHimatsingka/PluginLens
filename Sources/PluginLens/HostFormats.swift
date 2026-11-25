@@ -20,11 +20,14 @@ struct FoundPlugin: Hashable, Sendable {
     var knownSaved: [SavedVersion] = []
     /// The project did not record whether this is VST3, VST or AU: try each.
     var formatGuess = false
+    /// VST3 class ID (32 hex digits), when the project records it.
+    var classID: String? = nil
 
     struct AUCodes: Hashable, Sendable { var type: String; var subtype: String; var manufacturer: String }
 
     var key: String {
         if let c = auCodes { return "au:\(c.type)/\(c.subtype)/\(c.manufacturer)" }
+        if let id = classID { return "vst3:\(id)" }
         return "\(format.rawValue):\(isHostBuiltIn ? "builtin" : (fileName ?? auFullName ?? "")):\(name)"
     }
     static func == (l: FoundPlugin, r: FoundPlugin) -> Bool { l.key == r.key }

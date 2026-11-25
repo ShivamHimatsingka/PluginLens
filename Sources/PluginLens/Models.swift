@@ -33,12 +33,12 @@ enum ProjectError: Error, LocalizedError, Hashable, Sendable {
 
 /// A DAW whose projects can be read.
 enum Host: String, CaseIterable, Sendable {
-    case logic, ableton, reaper, waveform, ardour, garageBand, mainStage, flStudio, proTools, dawproject, lmms
+    case logic, ableton, reaper, waveform, ardour, garageBand, mainStage, flStudio, proTools, dawproject, lmms, cubase, nuendo, bitwig
     var displayName: String {
         switch self {
         case .logic: return "Logic Pro"; case .ableton: return "Ableton Live"; case .reaper: return "REAPER"
         case .waveform: return "Waveform"; case .ardour: return "Ardour"; case .garageBand: return "GarageBand"; case .mainStage: return "MainStage"
-        case .flStudio: return "FL Studio"; case .proTools: return "Pro Tools"; case .dawproject: return "DAWproject"; case .lmms: return "LMMS"
+        case .flStudio: return "FL Studio"; case .proTools: return "Pro Tools"; case .dawproject: return "DAWproject"; case .lmms: return "LMMS"; case .cubase: return "Cubase"; case .nuendo: return "Nuendo"; case .bitwig: return "Bitwig Studio"
         }
     }
     var bundleIdentifiers: [String] {
@@ -56,7 +56,7 @@ enum Host: String, CaseIterable, Sendable {
     var appNamePrefixes: [String] {
         switch self {
         case .reaper: return ["REAPER"]; case .waveform: return ["Waveform"]; case .ardour: return ["Ardour"]
-        case .garageBand: return ["GarageBand"]; case .mainStage: return ["MainStage"]; case .flStudio: return ["FL Studio"]; case .proTools: return ["Pro Tools"]; case .lmms: return ["LMMS"]; default: return []
+        case .garageBand: return ["GarageBand"]; case .mainStage: return ["MainStage"]; case .flStudio: return ["FL Studio"]; case .proTools: return ["Pro Tools"]; case .lmms: return ["LMMS"]; case .cubase: return ["Cubase"]; case .nuendo: return ["Nuendo"]; case .bitwig: return ["Bitwig Studio"]; default: return []
         }
     }
 }
@@ -64,7 +64,7 @@ enum Host: String, CaseIterable, Sendable {
 // MARK: - Discovered projects
 
 struct DiscoveredProject: Identifiable, Hashable, Sendable {
-    enum Kind: Hashable, Sendable { case logicx, legacy, abletonSet, reaper, waveform, ardour, flStudio, proToolsText, dawproject, lmms, unsupported(daw: String, hint: String) }
+    enum Kind: Hashable, Sendable { case logicx, legacy, abletonSet, reaper, waveform, ardour, flStudio, proToolsText, dawproject, lmms, cubase, bitwig, unsupported(daw: String, hint: String) }
     var url: URL
     var kind: Kind
     var id: String { url.path }

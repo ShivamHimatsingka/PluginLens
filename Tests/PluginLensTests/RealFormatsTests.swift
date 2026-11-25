@@ -77,7 +77,7 @@ final class RealFormatsTests: XCTestCase {
 
     // MARK: ZIP
 
-    private func zip(_ files: [(String, Data)], deflate: Bool) throws -> Data {
+    func zip(_ files: [(String, Data)], deflate: Bool) throws -> Data {
         func le(_ v: Int, _ n: Int) -> Data { Data((0..<n).map { UInt8(v >> (8 * $0) & 255) }) }
         var out = Data(), central = Data()
         let method = deflate ? 8 : 0

@@ -32,12 +32,17 @@ enum ProjectScanner {
         "ptx": ("Pro Tools", "Pro Tools sessions are encrypted. In Pro Tools use File > Export > Session Info as Text, include the plug-in listing, and open the .txt it creates."),
         "ptf": ("Pro Tools", "Pro Tools sessions are encrypted. In Pro Tools use File > Export > Session Info as Text, include the plug-in listing, and open the .txt it creates."),
         "pts": ("Pro Tools", "Pro Tools sessions are encrypted. In Pro Tools use File > Export > Session Info as Text, include the plug-in listing, and open the .txt it creates."),
-        "cpr": ("Cubase", "Native Cubase projects aren't supported yet. Export it as a DAWproject file (Bitwig Studio, Studio One and recent Cubase and Nuendo versions can) and open that instead. In Cubase, Project > Plug-in Information also lists a project's plugins."),
-        "npr": ("Nuendo", "Native Nuendo projects aren't supported yet. Export it as a DAWproject file (Bitwig Studio, Studio One and recent Cubase and Nuendo versions can) and open that instead. In Nuendo, Project > Plug-in Information also lists a project's plugins."),
-        "bwproject": ("Bitwig Studio", "Native Bitwig projects aren't supported yet. Export it with File > Export > DAWproject and open that instead."),
+        "cpr": ("Cubase", "This file does not have the header of a Cubase or Nuendo project, so it was not read."),
+        "npr": ("Nuendo", "This file does not have the header of a Cubase or Nuendo project, so it was not read."),
         "cwp": ("Cakewalk", "Cakewalk projects aren't supported yet."),
-        "reason": ("Reason", "Reason songs aren't supported yet."),
+        "reason": ("Reason", "Reason songs aren't supported yet: their device list is stored in a compressed part of the file that isn't decoded."),
     ]
+
+    static func hasPrefix(_ url: URL, _ text: String) -> Bool {
+        guard let h = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? h.close() }
+        return (try? h.read(upToCount: text.utf8.count)) == Data(text.utf8)
+    }
 
     static func isZip(_ url: URL) -> Bool {
         guard let h = try? FileHandle(forReadingFrom: url) else { return false }
@@ -62,6 +67,8 @@ enum ProjectScanner {
         if ext == "rpp", !isDir { return DiscoveredProject(url: url, kind: .reaper) }
         if ext == "tracktionedit", !isDir { return DiscoveredProject(url: url, kind: .waveform) }
         if ext == "ardour", !isDir { return DiscoveredProject(url: url, kind: .ardour) }
+        if (ext == "cpr" || ext == "npr"), !isDir, hasPrefix(url, "RIFF") { return DiscoveredProject(url: url, kind: .cubase) }
+        if ext == "bwproject", !isDir { return DiscoveredProject(url: url, kind: .bitwig) }
         if ext == "dawproject", !isDir { return DiscoveredProject(url: url, kind: .dawproject) }
         if (ext == "mmp" || ext == "mmpz"), !isDir { return DiscoveredProject(url: url, kind: .lmms) }
         if ext == "flp", !isDir { return DiscoveredProject(url: url, kind: .flStudio) }
@@ -153,6 +160,8 @@ enum ProjectLoader {
         case .ardour: return ArdourParser.parse
         case .flStudio: return FLStudioParser.parse
         case .dawproject: return DawprojectParser.parse
+        case .cubase: return CubaseParser.parse
+        case .bitwig: return BitwigParser.parse
         case .lmms: return LMMSParser.parse
         case .proToolsText: return ProToolsTextParser.parse
         default: return nil

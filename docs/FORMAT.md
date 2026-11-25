@@ -170,3 +170,18 @@ Public sample projects were used to check the parsers; they are not shipped in t
 - **DAWproject**: `project.xml` in a ZIP archive, validated with `xmllint --schema Project.xsd`. `Vst2Plugin`/`Vst3Plugin`/`ClapPlugin`/`AuPlugin` carry `deviceName`, `deviceVendor` and `pluginVersion`
   (the version the exporting DAW recorded, used as the saved version); built-ins are `BuiltinDevice`, `Equalizer`, `Compressor`, `NoiseGate`, `Limiter`.
 - **Bitwig `.bwproject`** was looked at (`BtWg` header, hex-text fields, then typed binary records) but the plugin records could not be identified with confidence, so it is not read.
+
+
+## Cubase, Nuendo and Bitwig (v0.5.0)
+
+Checked on one real Cubase 10.5.20 project and one real Bitwig Studio 5.3 project from public repositories; neither is shipped here.
+
+- **Cubase / Nuendo `.cpr`, `.npr`**: a `RIFF` file with form type `NUND` and a `ROOT` chunk holding a tree of named values. A key is a big-endian u32 length plus text and NUL; a string value is the
+  2-byte type `00 08`, a u32 length covering the text, its NUL and a UTF-8 BOM, then the text. The saving application is in an `AppVersion` object ("Cubase" / "Nuendo" and "Version 10.5.20").
+  Every plugin instance has a `Plugin UID` object (a `GUID` string: the VST3 class ID) followed by a `Plugin Name` value. Mixer plumbing (`Standard Panner`, `Input Filter`) is skipped; plugins named like
+  Steinberg's bundled ones (Mystic, Prologue, Spector, MultiScope, MixConvert V6, the channel EQ, ...) are reported as built-ins. The class ID is not matched against installed plugins yet (names are).
+- **Bitwig `.bwproject`**: `BtWg` + a hex-text header, then typed fields `00 00 <id> <type>`; strings have a u32 length. A VST3 device has field `0x0CE4` (class ID), `0x0C5E` (the plugin version that saved it) and
+  `0x0199` (device name). The project ends with a ZIP archive of `plugin-states/<uuid>.vstpreset` files whose headers (`VST3`, version, 32-digit class ID) tie each state to its device.
+  The saving version is the `application_version_name` entry of the `meta` object.
+- **Reason `.reason`** (looked at, not read): an IFF-style header (`X15_FILE`, `FORM`/`CAT` chunks with the program version and the ReFill list) followed by a large region that is mostly `0xFE` bytes and
+  high-entropy data; the devices live there and the encoding was not worked out. **Studio One and Cakewalk**: no sample project could be found, so nothing was attempted.

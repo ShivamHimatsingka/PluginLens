@@ -4,6 +4,8 @@ import Foundation
 struct ZipArchive {
     struct Entry { var name: String; var method: UInt16; var compressedSize: Int; var size: Int; var localOffset: Int }
     let data: Data
+    /// Bytes in front of the archive (zero for a normal ZIP; Bitwig projects carry a ZIP at the end of the file).
+    private(set) var base = 0
     private(set) var entries: [Entry] = []
     static let maxEntrySize = 512 * 1024 * 1024
 
@@ -22,7 +24,9 @@ struct ZipArchive {
         guard eocd >= 0 else { throw ProjectError.unsupportedFormat("not a ZIP archive") }
         let count = Int(Self.u16(b, eocd + 10)), cdOffset = Int(Self.u32(b, eocd + 16))
         guard count != 0xFFFF, cdOffset != 0xFFFF_FFFF else { throw ProjectError.unsupportedFormat("ZIP64 archives are not supported") }
-        var p = cdOffset
+        let cdSize = Int(Self.u32(b, eocd + 12))
+        base = max(0, eocd - cdSize - cdOffset)
+        var p = base + cdOffset
         for _ in 0..<count {
             guard p + 46 <= b.count, Self.u32(b, p) == 0x02014B50 else { throw ProjectError.corrupt("the archive's directory is damaged") }
             let method = Self.u16(b, p + 10), csize = Int(Self.u32(b, p + 20)), usize = Int(Self.u32(b, p + 24))
@@ -39,7 +43,7 @@ struct ZipArchive {
     func read(_ name: String) throws -> Data {
         guard let e = entries.first(where: { $0.name == name }) else { throw ProjectError.corrupt("\(name) is missing from the archive") }
         guard e.size <= Self.maxEntrySize, e.compressedSize <= Self.maxEntrySize else { throw ProjectError.unsupportedFormat("\(name) is unreasonably large") }
-        let o = e.localOffset
+        let o = base + e.localOffset
         guard o + 30 <= data.count, Self.u32(data, o) == 0x04034B50 else { throw ProjectError.corrupt("\(name) has a damaged header") }
         let start = o + 30 + Int(Self.u16(data, o + 26)) + Int(Self.u16(data, o + 28))
         guard start + e.compressedSize <= data.count else { throw ProjectError.corrupt("\(name) runs past the end of the archive") }
