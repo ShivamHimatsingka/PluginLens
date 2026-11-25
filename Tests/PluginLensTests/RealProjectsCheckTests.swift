@@ -10,7 +10,7 @@ final class RealProjectsCheckTests: XCTestCase {
         let root = try XCTUnwrap(path.flatMap { $0.isEmpty ? nil : $0 }, "set PLUGINLENS_PROJECTS")
         let projects = ProjectScanner.discover(at: URL(fileURLWithPath: (root as NSString).expandingTildeInPath))
         let index = InstalledPluginIndex()
-        var unsaved = 0, loaded = 0, failed: [String] = [], plugins = 0, missing: [String] = [], unknown: [String] = [], uncertain = 0
+        var savedAU = Set<String>(), checks: [String: Int] = [:], changed: [String] = [], unsaved = 0, loaded = 0, failed: [String] = [], plugins = 0, missing: [String] = [], unknown: [String] = [], uncertain = 0
         let start = Date()
         for p in projects {
             switch ProjectLoader.load(p, index: index) {
@@ -20,6 +20,9 @@ final class RealProjectsCheckTests: XCTestCase {
                     if e.status == .notInstalled { missing.append("\(p.name): \(e.name) [\(e.codes)]") }
                     if e.status == .versionUnknown { unknown.append("\(p.name): \(e.name) — \(e.note ?? "")") }
                     if e.isUncertain { uncertain += 1 }
+                    if e.format == .au { savedAU.insert("\(e.name): saved=\(e.savedVersionText) installed=\(e.versionText) [\(e.versionCheck.rawValue)] via \(e.savedVersionSource ?? "-")") }
+                    checks[e.versionCheck.rawValue, default: 0] += 1
+                    if e.versionCheck.needsAttention && e.formatText != "Logic built-in" { changed.append("\(p.name): \(e.name) saved=\(e.savedVersionText) installed=\(e.versionText) [\(e.versionCheck.rawValue)]") }
                 }
             case .failed(.noProjectData): unsaved += 1   // never-saved "Untitled" stubs hold only undo data
             case .failed(let e): failed.append("\(p.name): \(e.localizedDescription)")
@@ -27,6 +30,9 @@ final class RealProjectsCheckTests: XCTestCase {
             }
         }
         print("REALCHECK projects=\(projects.count) loaded=\(loaded) unsavedStubs=\(unsaved) failed=\(failed.count) plugins=\(plugins) missing=\(missing.count) unknown=\(unknown.count) uncertain=\(uncertain) seconds=\(String(format: "%.2f", Date().timeIntervalSince(start)))")
+        print("REALCHECK versionChecks=\(checks.sorted { $0.key < $1.key })")
+        savedAU.sorted().forEach { print("REALCHECK AU \($0)") }
+        Set(changed).sorted().forEach { print("REALCHECK CHANGED \($0)") }
         failed.forEach { print("REALCHECK FAILED \($0)") }
         missing.forEach { print("REALCHECK MISSING \($0)") }
         unknown.forEach { print("REALCHECK UNKNOWN \($0)") }

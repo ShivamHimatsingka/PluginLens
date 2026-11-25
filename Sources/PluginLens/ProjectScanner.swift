@@ -80,7 +80,9 @@ enum ProjectLoader {
         catch let e as ProjectError { return .failed(e) }
         catch { return .failed(.corrupt(error.localizedDescription)) }
 
-        let plugins = parsed.records.map { PluginResolver.resolve($0, index: index) }
+        var logicVersion: String?
+        if let saved = info.savedFrom, let r = saved.range(of: #"\d+(\.\d+)+"#, options: .regularExpression) { logicVersion = String(saved[r]) }
+        let plugins = parsed.records.map { PluginResolver.resolve($0, index: index, projectLogicVersion: logicVersion) }
         let modified = (try? dataURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
         return .loaded(ProjectReport(project: project, projectDataURL: dataURL, lastModified: modified,
                                      lastSavedFrom: info.savedFrom, plugins: plugins,

@@ -6,19 +6,19 @@ enum Exporters {
         s += "- Path: `\(report.project.url.path)`\n"
         if let d = report.lastModified { s += "- Last modified: \(d.formatted(date: .abbreviated, time: .shortened))\n" }
         if let v = report.lastSavedFrom { s += "- Saved with: \(escapeMD(v))\n" }
-        s += "\n| Plugin | Manufacturer | Format | Installed version | Status |\n|---|---|---|---|---|\n"
+        s += "\n| Plugin | Manufacturer | Format | Saved with | Installed version | Version check | Status |\n|---|---|---|---|---|---|---|\n"
         for p in report.plugins {
-            s += "| \(escapeMD(p.name)) | \(escapeMD(p.manufacturer)) | \(escapeMD(p.formatText)) | \(escapeMD(p.versionText)) | \(escapeMD(p.statusText)) |\n"
+            s += "| \(escapeMD(p.name)) | \(escapeMD(p.manufacturer)) | \(escapeMD(p.formatText)) | \(escapeMD(p.savedVersionText)) | \(escapeMD(p.versionText)) | \(escapeMD(p.versionCheck.rawValue)) | \(escapeMD(p.statusText)) |\n"
         }
-        if report.plugins.isEmpty { s += "| _No plugins found_ | | | | |\n" }
+        if report.plugins.isEmpty { s += "| _No plugins found_ | | | | | | |\n" }
         return s
     }
 
     static func csv(_ report: ProjectReport) -> String {
-        var rows = [["Plugin", "Manufacturer", "Format", "Installed version", "Status", "AU codes", "Note"]]
+        var rows = [["Plugin", "Manufacturer", "Format", "Saved with", "Installed version", "Version check", "Status", "AU codes", "Note"]]
         for p in report.plugins {
-            rows.append([p.name, p.manufacturer, p.formatText, p.installedVersion.map { p.isUncertain ? "\($0) (uncertain)" : $0 } ?? "",
-                         p.statusText, p.codes, p.note ?? ""])
+            rows.append([p.name, p.manufacturer, p.formatText, p.savedVersion ?? "", p.installedVersion.map { p.isUncertain ? "\($0) (uncertain)" : $0 } ?? "",
+                         p.versionCheck.rawValue, p.statusText, p.codes, p.note ?? ""])
         }
         return rows.map { $0.map(csvField).joined(separator: ",") }.joined(separator: "\r\n") + "\r\n"
     }

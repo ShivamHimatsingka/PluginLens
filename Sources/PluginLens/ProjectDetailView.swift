@@ -91,7 +91,7 @@ struct ProjectDetailView: View {
     private func filtered(_ r: ProjectReport) -> [PluginEntry] {
         let q = search.trimmingCharacters(in: .whitespaces)
         let base = q.isEmpty ? r.plugins : r.plugins.filter {
-            [$0.name, $0.manufacturer, $0.formatText, $0.versionText, $0.statusText, $0.codes]
+            [$0.name, $0.manufacturer, $0.formatText, $0.versionText, $0.savedVersionText, $0.versionCheck.rawValue, $0.statusText, $0.codes]
                 .contains { $0.localizedCaseInsensitiveContains(q) }
         }
         return base.sorted(using: sortOrder)
@@ -116,8 +116,20 @@ struct ProjectDetailView: View {
                 }
                 TableColumn("Manufacturer", value: \.manufacturer) { p in Text(p.manufacturer) }
                 TableColumn("Format", value: \.formatText) { p in Text(p.formatText) }
+                TableColumn("Saved with", value: \.savedVersionText) { p in
+                    Text(p.savedVersionText).monospacedDigit().foregroundStyle(p.savedVersion == nil ? .secondary : .primary)
+                        .help(p.savedVersionSource.map { "Read from: \($0)" } ?? "This plugin does not write its version into the project.")
+                }
                 TableColumn("Installed version", value: \.versionText) { p in
                     Text(p.versionText).monospacedDigit().foregroundStyle(p.installedVersion == nil ? .secondary : .primary)
+                }
+                TableColumn("Version check", value: \.checkRank) { p in
+                    HStack(spacing: 4) {
+                        if p.versionCheck.needsAttention { Image(systemName: "arrow.triangle.2.circlepath") }
+                        Text(p.versionCheck.rawValue)
+                    }
+                    .foregroundStyle(checkColor(p.versionCheck))
+                    .help(p.versionCheck == .notStored ? "The project has no version for this plugin." : "")
                 }
                 TableColumn("Status", value: \.statusRank) { p in
                     Text(p.statusText)
@@ -135,13 +147,24 @@ struct ProjectDetailView: View {
     private func footer(for r: ProjectReport) -> some View {
         let missing = r.plugins.filter { $0.status == .notInstalled }.count
         let unknown = r.plugins.filter { $0.status == .versionUnknown }.count
+        let changed = r.plugins.filter { $0.versionCheck.needsAttention }.count
         return HStack {
             Text("\(r.plugins.count) plugin\(r.plugins.count == 1 ? "" : "s")")
             if missing > 0 { Text("· \(missing) not installed").foregroundStyle(.red) }
             if unknown > 0 { Text("· \(unknown) version unknown").foregroundStyle(.orange) }
+            if changed > 0 { Text("· \(changed) changed since saved").foregroundStyle(.orange) }
             Spacer()
         }
         .font(.caption).padding(8).background(.bar)
+    }
+
+    private func checkColor(_ c: VersionCheck) -> Color {
+        switch c {
+        case .same: return .green
+        case .installedNewer, .differs: return .orange
+        case .installedOlder: return .red
+        default: return .secondary
+        }
     }
 
     private func statusColor(_ s: PluginStatus) -> Color {
@@ -155,4 +178,5 @@ struct ProjectDetailView: View {
 
 extension PluginEntry {
     var statusRank: Int { status.sortRank }
+    var checkRank: Int { versionCheck.sortRank }
 }

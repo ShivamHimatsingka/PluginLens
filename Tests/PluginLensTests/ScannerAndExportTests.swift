@@ -117,7 +117,7 @@ final class ScannerAndExportTests: XCTestCase {
     func testMarkdownExport() {
         let md = Exporters.markdown(sampleReport())
         XCTAssertTrue(md.contains("# My Song"))
-        XCTAssertTrue(md.contains("| Pro-Q 4 | FabFilter | AU (+VST3 installed) | 4.01 | Installed |"))
+        XCTAssertTrue(md.contains("| Pro-Q 4 | FabFilter | AU (+VST3 installed) | — | 4.01 | Not stored | Installed |"))
         XCTAssertTrue(md.contains("a\\|b"), "pipes in names must be escaped")
         XCTAssertTrue(md.contains("Not installed"))
     }
@@ -125,8 +125,8 @@ final class ScannerAndExportTests: XCTestCase {
     func testCSVExportQuotesAndNeutralisesFormulas() {
         let csv = Exporters.csv(sampleReport())
         let lines = csv.components(separatedBy: "\r\n")
-        XCTAssertEqual(lines[0], "Plugin,Manufacturer,Format,Installed version,Status,AU codes,Note")
-        XCTAssertEqual(lines[1], "Pro-Q 4,FabFilter,AU (+VST3 installed),4.01,Installed,aumf/FQ4p/FabF,")
+        XCTAssertEqual(lines[0], "Plugin,Manufacturer,Format,Saved with,Installed version,Version check,Status,AU codes,Note")
+        XCTAssertEqual(lines[1], "Pro-Q 4,FabFilter,AU (+VST3 installed),,4.01,Not stored,Installed,aumf/FQ4p/FabF,")
         XCTAssertTrue(lines[2].hasPrefix("\"'=EVIL(\"\"x\"\"), a|b\",Zzzz"), lines[2])
         XCTAssertTrue(lines[2].hasSuffix("\"Not here, really\""))
     }

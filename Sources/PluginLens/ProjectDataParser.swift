@@ -55,7 +55,13 @@ enum ProjectDataParser {
             }
             i += 1
         }
-        return ParseResult(records: order.compactMap { found[$0] }, warnings: [])
+        let saved = SavedVersionExtractor.extract(from: data)
+        let records = order.compactMap { found[$0] }.map { r -> RawPluginRecord in
+            var r = r
+            r.saved = saved[r.key] ?? []
+            return r
+        }
+        return ParseResult(records: records, warnings: [])
     }
 
     // MARK: Record readers

@@ -43,11 +43,23 @@ Same record shape, but the manufacturer slot holds `GAME` (a Logic-internal mark
 display name: `St-Delay`, `SmpleDly`, `Space D`, `Compressor`, `Limiter`, `ChromaVerb`, `Bass Amp`, `Phat FX`, `Spread`.
 There is no AU type/subtype for these. Mapping them to full names needs a lookup table I would have to build, and it will be incomplete.
 
-## Plugin version information
-**Not stored in the project.** The `version` key inside embedded plists is always 0 (it is the AU state-format version). The
-installed ValhallaRoom is 2.0.5 (AudioComponents version 0x00020005) and Pro-Q 4 is 4.01 (0x00040001). Neither value appears in their records.
-So the "installed version" can only come from the installed bundle, and we cannot report which version the project was saved with. I will not
-claim a "version mismatch" in the UI.
+## Plugin version information (revised after Phase 3)
+Phase 1 concluded that versions were not stored. That was only half right. There is **no universal version field**, but
+the project does contain each plugin's saved AU state as an embedded XML plist (`type`, `subtype`, `manufacturer` as integers,
+`version`, plus the plugin's own state blobs), and **many plugins write their own version into that state**.
+
+- The plist `version` key is the AU state-format version: 0 in nearly every case. It is not used.
+- Version strings found in the state blobs, by convention:
+  - `pluginVersion="x.y.z"` in JUCE XML state: Valhalla plugins, Neural DSP Archetype/Mantra/Parallax/Nameless, oeksound soothe2
+  - `"productVersion":"x.y.z"` in a JSON header: Serum 2
+  - `PlugVersion x.y.z` text line: Toontrack Superior Drummer
+  - `Version="x.y.z"` attributes (dotted, 2-4 parts, preceded by a non-letter)
+- Plugins with nothing found: FabFilter, UAD, iZotope, Native Instruments, Soundtoys, Antares and others. They store binary or
+  vendor-specific state with no discoverable version.
+- Validation: across the 55 readable projects in the sample library, every extracted version equals the version installed on this machine
+  (0 disagreements), which is the expected result for an up-to-date machine and independent confirmation that these fields hold the plugin's version.
+  The disagreement path is covered by unit tests with fake installs, because no real project here was saved with an older plugin.
+- Logic built-ins are versioned with Logic itself: the saved version is `LastSavedFrom` in `Resources/ProjectInformation.plist`.
 
 ## Not determinable / risks
 1. Full chunk grammar (lengths, nesting). Extraction is a record scan with validation, so it can miss records in unusual layouts.
@@ -55,7 +67,7 @@ claim a "version mismatch" in the UI.
    component's `AudioComponents` array in `Info.plist` (an exact match), with name only as a fallback.
 3. Raw byte scanning gives false positives inside audio or state blobs (e.g. random `aufx` lookalikes). The parser must check the
    12-byte name field is printable ASCII, the layout bytes match, and the triple is plausible.
-4. Built-in display names and per-plugin versions are not available. Their version is effectively Logic's own version.
+4. Built-in display names are not available (small lookup table only). Per-plugin saved versions exist only for plugins that write one into their state.
 5. Software instruments in channel strips, and plugins on the master or aux, appear in the same record style. I have not verified which
    slot or track each belongs to, and bypassed or empty slots are not distinguished.
 6. Only Logic 12.2 samples were available. Older or newer-format projects are untested.

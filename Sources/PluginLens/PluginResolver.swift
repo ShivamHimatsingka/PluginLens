@@ -20,11 +20,46 @@ enum BuiltInNames {
 ///    name. Reported as "uncertain" - never as a confident match.
 /// 3. Otherwise "Not installed".
 enum PluginResolver {
-    static func resolve(_ r: RawPluginRecord, index: InstalledPluginIndex) -> PluginEntry {
+    /// - Parameter projectLogicVersion: the Logic version that last saved the project; it is the "saved with" version of built-ins.
+    static func resolve(_ r: RawPluginRecord, index: InstalledPluginIndex, projectLogicVersion: String? = nil) -> PluginEntry {
+        var e: PluginEntry
         switch r.kind {
-        case .builtIn: return resolveBuiltIn(r, index: index)
-        case .audioUnit: return resolveAudioUnit(r, index: index)
+        case .builtIn:
+            e = resolveBuiltIn(r, index: index)
+            if let v = projectLogicVersion {
+                e.savedVersion = "\(v) (Logic Pro)"
+                e.savedVersionSource = "ProjectInformation.plist (LastSavedFrom)"
+                e.versionCheck = compare(saved: [v], installed: index.logicVersion)
+            }
+        case .audioUnit:
+            e = resolveAudioUnit(r, index: index)
+            if r.saved.isEmpty {
+                e.versionCheck = e.status == .notInstalled ? .notInstalled : .notStored
+            } else {
+                let versions = r.saved.map(\.version)
+                e.savedVersion = versions.joined(separator: ", ")
+                e.savedVersionSource = r.saved.map(\.source).first
+                e.versionCheck = e.status == .notInstalled ? .notInstalled
+                    : compare(saved: versions, installed: e.isUncertain ? nil : e.installedVersion)
+            }
         }
+        return e
+    }
+
+    /// Compares the version(s) saved in the project with the installed one. With several saved versions (instances saved by
+    /// different plugin versions) the newest is compared, and any disagreement is reported.
+    static func compare(saved: [String], installed: String?) -> VersionCheck {
+        guard let installed else { return .cannotCompare }
+        var worst: VersionCheck = .same
+        for v in saved {
+            switch SavedVersionExtractor.compare(v, installed) {
+            case .orderedSame: continue
+            case .orderedAscending: worst = .installedNewer
+            case .orderedDescending: return .installedOlder
+            case nil: if v != installed { worst = .differs }
+            }
+        }
+        return worst
     }
 
     private static func resolveBuiltIn(_ r: RawPluginRecord, index: InstalledPluginIndex) -> PluginEntry {

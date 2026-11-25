@@ -5,7 +5,8 @@ with the version installed on this Mac.
 
 - Open a `.logicx` package, or a folder: it is scanned recursively for `.logicx` packages and extracted project folders.
 - The sidebar lists projects. The detail pane shows name, path, last-modified date, and a sortable, searchable table:
-  **Plugin, Manufacturer, Format, Installed version, Status** (Installed / Not installed / Version unknown).
+  **Plugin, Manufacturer, Format, Saved with, Installed version, Version check, Status** (Installed / Not installed / Version unknown).
+- **Saved with** is the plugin version the project was saved with; **Version check** compares it to what is installed (Same / Installed is newer / Installed is older).
 - Missing and unknown-version rows are flagged with an icon and colour.
 - **Copy as Markdown** and **Export CSV** for the selected project.
 - A corrupt, unreadable or unsupported project shows its error in its own detail pane; other projects keep working.
@@ -62,7 +63,7 @@ If several installed bundles share the same codes but have different versions, t
 
 - **Logic only hosts Audio Units**, so every third-party plugin in a project is AU. VST and VST3 can never appear as a project's format. The
   Format column shows `AU (+VST3 installed)` when a VST/VST3 bundle with the same name is also installed, and the row's tooltip lists its version (read from the bundle's Info.plist, including vendor sub-folders). That is informational only: a VST-only install does not count as installed, since Logic can't load it.
-- **The project does not store plugin versions**, so the app shows the *installed* version, not the version the project was saved with, and cannot detect a mismatch.
+- **Saved versions exist only for plugins that record one.** Logic has no version field of its own; the app reads the version a plugin writes into its saved state (`pluginVersion`, `productVersion`, `PlugVersion`, `Version` conventions, see docs/FORMAT.md). Valhalla, Neural DSP, oeksound soothe2, Serum 2 and Superior Drummer do; FabFilter, UAD, iZotope, Native Instruments and others do not, and show "Not stored". Built-ins use the Logic version that saved the project.
 - **Logic built-in plugins** have no AU codes in the project. They are listed with Logic's own version, and display names come from a small
   table (`BuiltInNames`); unknown ones show Logic's internal 11-character name.
 - Plugin names are truncated to 11 characters in the project. Plugins that are not installed are shown by that truncated name and the four-character manufacturer code.
@@ -71,7 +72,7 @@ If several installed bundles share the same codes but have different versions, t
 
 ## Tests
 
-Run `xcodebuild ... test` (40 tests). One extra check is opt-in and reads real projects: set `PLUGINLENS_PROJECTS` to a folder, or write its path to
+Run `xcodebuild ... test` (52 tests). One extra check is opt-in and reads real projects: set `PLUGINLENS_PROJECTS` to a folder, or write its path to
 `/tmp/pluginlens_projects_path`, and it loads every project and prints a `REALCHECK` summary (counts, failures, missing and unknown plugins).
 On the author's library: 59 packages found, 55 loaded, 683 plugin records, 0 failures; the other 4 are never-saved "Untitled" stubs that contain only undo data
 and are reported as such.

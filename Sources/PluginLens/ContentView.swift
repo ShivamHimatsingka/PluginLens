@@ -77,7 +77,7 @@ struct ContentView: View {
     private func icon(for item: ProjectItem) -> String {
         switch item.state {
         case .failed: return "exclamationmark.triangle.fill"
-        case .loaded(let r): return r.plugins.contains(where: \.needsAttention) ? "exclamationmark.circle" : "music.note.list"
+        case .loaded(let r): return r.plugins.contains(where: { $0.needsAttention || $0.versionCheck.needsAttention }) ? "exclamationmark.circle" : "music.note.list"
         default: return "music.note.list"
         }
     }

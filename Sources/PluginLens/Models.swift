@@ -51,6 +51,8 @@ struct RawPluginRecord: Hashable, Sendable {
     /// How many records with the same identity were found.
     var count: Int
     var firstOffset: Int
+    /// Plugin version(s) found in the plugin's saved state, if the plugin stores one.
+    var saved: [SavedVersion] = []
 
     var key: String {
         kind == .audioUnit ? "au:\(type)/\(subtype)/\(manufacturer)" : "builtin:\(name)"
@@ -86,6 +88,20 @@ enum PluginStatus: String, Hashable, Sendable {
     }
 }
 
+/// How the version the project was saved with relates to what is installed now.
+enum VersionCheck: String, Hashable, Sendable {
+    case same = "Same"
+    case installedNewer = "Installed is newer"
+    case installedOlder = "Installed is older"
+    case differs = "Different"
+    case cannotCompare = "Can't compare"
+    case notStored = "Not stored"
+    case notInstalled = "Not installed"
+
+    var needsAttention: Bool { self == .installedNewer || self == .installedOlder || self == .differs }
+    var sortRank: Int { switch self { case .installedOlder: return 0; case .installedNewer: return 1; case .differs: return 2; case .cannotCompare: return 3; case .same: return 4; case .notInstalled: return 5; case .notStored: return 6 } }
+}
+
 struct PluginEntry: Identifiable, Hashable, Sendable {
     var id: String
     var name: String
@@ -100,7 +116,12 @@ struct PluginEntry: Identifiable, Hashable, Sendable {
     var otherFormats: [PluginFormat]
     var codes: String
     var bundlePath: String?
+    /// Version the project was saved with, if the plugin wrote one into its state (or Logic's own version for built-ins).
+    var savedVersion: String? = nil
+    var savedVersionSource: String? = nil
+    var versionCheck: VersionCheck = .notStored
 
+    var savedVersionText: String { savedVersion ?? "—" }
     var versionText: String {
         guard let v = installedVersion else { return "—" }
         return isUncertain ? "\(v) (uncertain)" : v
