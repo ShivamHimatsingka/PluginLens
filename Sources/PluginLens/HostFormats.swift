@@ -16,6 +16,10 @@ struct FoundPlugin: Hashable, Sendable {
     var isHostBuiltIn = false
     var states: [Data] = []
     var count = 1
+    /// Versions the project states outright (Pro Tools' plug-in listing).
+    var knownSaved: [SavedVersion] = []
+    /// The project did not record whether this is VST3, VST or AU: try each.
+    var formatGuess = false
 
     struct AUCodes: Hashable, Sendable { var type: String; var subtype: String; var manufacturer: String }
 
@@ -57,7 +61,7 @@ enum HostResolver {
     static func resolve(_ p: FoundPlugin, host: Host, savedHostVersion: String?, index: InstalledPluginIndex) -> PluginEntry {
         if p.isHostBuiltIn || p.format == .jsfx { return builtIn(p, host: host, savedHostVersion: savedHostVersion, index: index) }
 
-        var saved: [SavedVersion] = []
+        var saved: [SavedVersion] = p.knownSaved
         var stateCodes: FoundPlugin.AUCodes?
         for s in p.states {
             let r = SavedVersionExtractor.statePlistCandidates(s)
@@ -65,10 +69,21 @@ enum HostResolver {
             if stateCodes == nil, let c = r.codes { stateCodes = .init(type: c.type, subtype: c.subtype, manufacturer: c.manufacturer) }
         }
 
+        if p.formatGuess {
+            // The format was not recorded: use the first format in which the plugin is installed.
+            var last: PluginEntry?
+            for f in [PluginFormat.vst3, .au, .vst] {
+                var q = p; q.formatGuess = false; q.format = f
+                var e = resolve(q, host: host, savedHostVersion: savedHostVersion, index: index)
+                if e.status != .notInstalled { e.isUncertain = true; if e.status == .installed { e.status = .versionUnknown }; e.note = "The project does not record the plugin format; matched as \(f.rawValue)."; return e }
+                last = e
+            }
+            if var e = last { e.note = "No installed VST3, AU or VST plugin matches \"\(p.name)\"; the project does not record the plugin format."; return e }
+        }
         var e: PluginEntry
         switch p.format {
         case .au: e = audioUnit(p, codes: p.auCodes ?? stateCodes, saved: saved, index: index)
-        case .vst, .vst3, .clap: e = bundled(p, index: index)
+        case .vst, .vst3, .clap, .aax: e = bundled(p, index: index)
         default:
             e = PluginEntry(id: p.key, name: p.name, manufacturer: p.vendor ?? "—", format: p.format, installedVersion: nil,
                             status: .versionUnknown, isUncertain: false,
@@ -86,7 +101,9 @@ enum HostResolver {
                             note: now == nil ? "\(host.displayName) is not installed, so its built-in version can't be read."
                                              : "Built-in devices are versioned with \(host.displayName) itself.",
                             otherFormats: [], codes: "", bundlePath: nil)
-        if let v = savedHostVersion {
+        if let k = p.knownSaved.first {   // e.g. Pro Tools' plug-in listing: a version, but not Pro Tools' own
+            e.savedVersion = k.version; e.savedVersionSource = k.source; e.versionCheck = .cannotCompare
+        } else if let v = savedHostVersion {
             e.savedVersion = "\(v) (\(host.displayName))"
             e.savedVersionSource = "the project's own header"
             e.versionCheck = PluginResolver.compare(saved: [v], installed: index.installedVersion(of: host))
@@ -100,7 +117,11 @@ enum HostResolver {
         }
         if let c = codes { return PluginResolver.resolve(raw((c.type, c.subtype, c.manufacturer)), index: index) }
 
-        // No codes: the DAW's "Vendor: Name" is exactly the name an installed component declares.
+        // No codes: a plugin file name the DAW recorded ("Name.component") identifies the bundle.
+        if let f = p.fileName, let c = index.components.first(where: { $0.bundleURL.lastPathComponent == (f as NSString).lastPathComponent }) {
+            return PluginResolver.resolve(raw((c.type, c.subtype, c.manufacturer)), index: index)
+        }
+        // The DAW's "Vendor: Name" is exactly the name an installed component declares.
         let wantedFull = p.auFullName.map(InstalledPluginIndex.normalize)
         let wantedName = InstalledPluginIndex.normalize(p.name)
         let byFull = wantedFull.map { w in index.components.filter { InstalledPluginIndex.normalize($0.fullName) == w } } ?? []
@@ -129,6 +150,10 @@ enum HostResolver {
         }
         if let stem, let b = index.bundle(format: p.format, named: stem) {
             return entry(b, uncertain: false, note: "Matched by the plugin's file name; version from its Info.plist.")
+        }
+        let combined = [p.vendor, p.name].compactMap { $0 }.joined(separator: " ")
+        if p.vendor != nil, let b = index.bundle(format: p.format, named: combined) {
+            return entry(b, uncertain: false, note: "Matched by manufacturer and plugin name.")
         }
         if let b = index.bundle(format: p.format, named: p.name) ?? index.bundle(format: p.format, nameContaining: p.name) {
             return entry(b, uncertain: true, note: "Matched by plugin name only.")

@@ -27,6 +27,26 @@ enum ProjectScanner {
         return results.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
+    /// Projects of these DAWs are listed so you can see they were skipped, with the reason.
+    static let unsupportedKinds: [String: (String, String)] = [
+        "ptx": ("Pro Tools", "Pro Tools sessions are encrypted. In Pro Tools use File > Export > Session Info as Text, include the plug-in listing, and open the .txt it creates."),
+        "ptf": ("Pro Tools", "Pro Tools sessions are encrypted. In Pro Tools use File > Export > Session Info as Text, include the plug-in listing, and open the .txt it creates."),
+        "pts": ("Pro Tools", "Pro Tools sessions are encrypted. In Pro Tools use File > Export > Session Info as Text, include the plug-in listing, and open the .txt it creates."),
+        "cpr": ("Cubase", "Its project format is proprietary and has not been reverse-engineered here. In Cubase, Project > Plug-in Information lists a project's plugins."),
+        "npr": ("Nuendo", "Its project format is proprietary and has not been reverse-engineered here. In Nuendo, Project > Plug-in Information lists a project's plugins."),
+        "bwproject": ("Bitwig Studio", "Its project format is proprietary and has not been reverse-engineered here."),
+        "cwp": ("Cakewalk", "Its project format is proprietary and has not been reverse-engineered here."),
+        "reason": ("Reason", "Its project format is proprietary and has not been reverse-engineered here."),
+    ]
+
+    /// Pro Tools "Export Session Info as Text" files start with `SESSION NAME:`.
+    static func isProToolsExport(_ url: URL) -> Bool {
+        guard let h = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? h.close() }
+        guard let d = try? h.read(upToCount: 32) else { return false }
+        return d.starts(with: Data("SESSION NAME:".utf8))
+    }
+
     private static func classify(_ url: URL) -> DiscoveredProject? {
         let ext = url.pathExtension.lowercased()
         let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
@@ -36,6 +56,9 @@ enum ProjectScanner {
         if ext == "rpp", !isDir { return DiscoveredProject(url: url, kind: .reaper) }
         if ext == "tracktionedit", !isDir { return DiscoveredProject(url: url, kind: .waveform) }
         if ext == "ardour", !isDir { return DiscoveredProject(url: url, kind: .ardour) }
+        if ext == "flp", !isDir { return DiscoveredProject(url: url, kind: .flStudio) }
+        if ext == "txt", !isDir, isProToolsExport(url) { return DiscoveredProject(url: url, kind: .proToolsText) }
+        if !isDir, let u = unsupportedKinds[ext] { return DiscoveredProject(url: url, kind: .unsupported(daw: u.0, hint: u.1)) }
         // GarageBand and MainStage are built on Logic's engine; their packages are read with the Logic parser (experimental).
         if (ext == "band" || ext == "concert"), isDir { return DiscoveredProject(url: url, kind: .logicx) }
         if isDir, FileManager.default.fileExists(atPath: url.appendingPathComponent("Alternatives").path),
@@ -75,6 +98,7 @@ enum ProjectLoader {
     static func load(_ project: DiscoveredProject, index: InstalledPluginIndex) -> LoadState {
         if project.kind == .legacy { return .failed(.legacyFormat) }
         if project.kind == .abletonSet { return loadAbleton(project, index: index) }
+        if case .unsupported(let daw, let hint) = project.kind { return .failed(.notSupportedYet(daw: daw, hint: hint)) }
         if let parse = hostParser(for: project.kind) { return loadHostFile(project, index: index, parse: parse) }
         let fm = FileManager.default
         guard fm.fileExists(atPath: project.url.path) else { return .failed(.unreadable("the file no longer exists")) }
@@ -118,6 +142,8 @@ enum ProjectLoader {
         case .reaper: return ReaperParser.parse
         case .waveform: return WaveformParser.parse
         case .ardour: return ArdourParser.parse
+        case .flStudio: return FLStudioParser.parse
+        case .proToolsText: return ProToolsTextParser.parse
         default: return nil
         }
     }

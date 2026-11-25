@@ -9,6 +9,7 @@ enum ProjectError: Error, LocalizedError, Hashable, Sendable {
     case unsupportedFormat(String)
     case corrupt(String)
     case legacyFormat
+    case notSupportedYet(daw: String, hint: String)
 
     var errorDescription: String? {
         switch self {
@@ -22,6 +23,8 @@ enum ProjectError: Error, LocalizedError, Hashable, Sendable {
             return "The project file looks corrupt or incomplete: \(why)"
         case .legacyFormat:
             return "This is a legacy Logic (.logic) project. Only .logicx packages are supported."
+        case .notSupportedYet(let daw, let hint):
+            return "\(daw) projects can't be read yet. \(hint)"
         }
     }
 }
@@ -30,11 +33,12 @@ enum ProjectError: Error, LocalizedError, Hashable, Sendable {
 
 /// A DAW whose projects can be read.
 enum Host: String, CaseIterable, Sendable {
-    case logic, ableton, reaper, waveform, ardour, garageBand, mainStage
+    case logic, ableton, reaper, waveform, ardour, garageBand, mainStage, flStudio, proTools
     var displayName: String {
         switch self {
         case .logic: return "Logic Pro"; case .ableton: return "Ableton Live"; case .reaper: return "REAPER"
         case .waveform: return "Waveform"; case .ardour: return "Ardour"; case .garageBand: return "GarageBand"; case .mainStage: return "MainStage"
+        case .flStudio: return "FL Studio"; case .proTools: return "Pro Tools"
         }
     }
     var bundleIdentifiers: [String] {
@@ -44,13 +48,15 @@ enum Host: String, CaseIterable, Sendable {
         case .ardour: return ["org.ardour.Ardour"]
         case .garageBand: return ["com.apple.garageband10"]
         case .mainStage: return ["com.apple.mainstage3"]
+        case .flStudio: return ["com.image-line.flstudio"]
+        case .proTools: return ["com.avid.ProTools"]
         default: return []
         }
     }
     var appNamePrefixes: [String] {
         switch self {
         case .reaper: return ["REAPER"]; case .waveform: return ["Waveform"]; case .ardour: return ["Ardour"]
-        case .garageBand: return ["GarageBand"]; case .mainStage: return ["MainStage"]; default: return []
+        case .garageBand: return ["GarageBand"]; case .mainStage: return ["MainStage"]; case .flStudio: return ["FL Studio"]; case .proTools: return ["Pro Tools"]; default: return []
         }
     }
 }
@@ -58,7 +64,7 @@ enum Host: String, CaseIterable, Sendable {
 // MARK: - Discovered projects
 
 struct DiscoveredProject: Identifiable, Hashable, Sendable {
-    enum Kind: Sendable { case logicx, legacy, abletonSet, reaper, waveform, ardour }
+    enum Kind: Hashable, Sendable { case logicx, legacy, abletonSet, reaper, waveform, ardour, flStudio, proToolsText, unsupported(daw: String, hint: String) }
     var url: URL
     var kind: Kind
     var id: String { url.path }
@@ -109,6 +115,9 @@ enum PluginFormat: String, Hashable, Sendable {
     case reaperBuiltIn = "REAPER built-in"
     case waveformBuiltIn = "Waveform built-in"
     case ardourBuiltIn = "Ardour built-in"
+    case aax = "AAX"
+    case flBuiltIn = "FL Studio built-in"
+    case proToolsBuiltIn = "Pro Tools built-in"
 }
 
 enum PluginStatus: String, Hashable, Sendable {

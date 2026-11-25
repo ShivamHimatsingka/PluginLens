@@ -11,6 +11,7 @@
 		10D56AEFBB100A51B48F1D45 /* ParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C84F68C24AF012410F31DF /* ParserTests.swift */; };
 		1AAF03A770AE9B5546E97A3F /* VersionLookupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808930CFCD1FDEE40E479600 /* VersionLookupTests.swift */; };
 		2392BBAB4F3291F0CDEAEE1E /* AbletonSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65374524CA95F41E1F176CE2 /* AbletonSet.swift */; };
+		23C44616692B693F04338411 /* MoreHostsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D2394ECDE4D680D0B283E8F /* MoreHostsTests.swift */; };
 		24704F103370924ED36C8BF5 /* InstalledPluginIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4952E2999F3E0ED79DB3D4 /* InstalledPluginIndex.swift */; };
 		2D4107A011C2909AD5972C1E /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = 5D57218C6CBCC4C37BDB6FB0 /* Fixtures */; };
 		43380200B92009AA43ECE92E /* HostFormatsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60EAD513F956FD380ED27F53 /* HostFormatsTests.swift */; };
@@ -21,6 +22,7 @@
 		6900E753293EAFF7CF0835EF /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F8614AD263E90A731689E0B /* TestSupport.swift */; };
 		7222925A0B2481B40DBDEECB /* HostFormats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 046EC88A3B9DE2E773AC8E65 /* HostFormats.swift */; };
 		88FDA640F0E0936C95668211 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C43F797563A631D4409AFC3 /* AppModel.swift */; };
+		96003A3B3F72523AB0038D5B /* MoreHosts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0537BA7035604354C968580F /* MoreHosts.swift */; };
 		973B04759298A943FCB3802C /* ScannerAndExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF98152C3EEB1BB1445B7F9 /* ScannerAndExportTests.swift */; };
 		B43637857F3A6D50B31D6F52 /* AbletonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B955E332BCBE4F3663731AE7 /* AbletonTests.swift */; };
 		C8F900B73C8A2AD298CCF016 /* SavedVersionExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60D0302BE343EC1CD8B8382 /* SavedVersionExtractor.swift */; };
@@ -46,6 +48,7 @@
 /* Begin PBXFileReference section */
 		01F8E4A120A031994B5A79A0 /* PluginLensApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginLensApp.swift; sourceTree = "<group>"; };
 		046EC88A3B9DE2E773AC8E65 /* HostFormats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostFormats.swift; sourceTree = "<group>"; };
+		0537BA7035604354C968580F /* MoreHosts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreHosts.swift; sourceTree = "<group>"; };
 		0D4952E2999F3E0ED79DB3D4 /* InstalledPluginIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstalledPluginIndex.swift; sourceTree = "<group>"; };
 		0D5ACCB52114D1BB7270E72F /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		13BD0195F6D92044F0A774D7 /* Exporters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exporters.swift; sourceTree = "<group>"; };
@@ -56,6 +59,7 @@
 		3F8614AD263E90A731689E0B /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport.swift; sourceTree = "<group>"; };
 		48E0AFAD29BD2B75B798E73C /* PluginLensTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PluginLensTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4DEA67B57F87EAB488E9E2C9 /* SavedVersionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedVersionTests.swift; sourceTree = "<group>"; };
+		5D2394ECDE4D680D0B283E8F /* MoreHostsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreHostsTests.swift; sourceTree = "<group>"; };
 		5D57218C6CBCC4C37BDB6FB0 /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Tests/Fixtures; sourceTree = SOURCE_ROOT; };
 		60EAD513F956FD380ED27F53 /* HostFormatsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostFormatsTests.swift; sourceTree = "<group>"; };
 		65374524CA95F41E1F176CE2 /* AbletonSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbletonSet.swift; sourceTree = "<group>"; };
@@ -97,6 +101,7 @@
 			children = (
 				B955E332BCBE4F3663731AE7 /* AbletonTests.swift */,
 				60EAD513F956FD380ED27F53 /* HostFormatsTests.swift */,
+				5D2394ECDE4D680D0B283E8F /* MoreHostsTests.swift */,
 				A4C84F68C24AF012410F31DF /* ParserTests.swift */,
 				318AC632301BEC962E6ADCD1 /* RealProjectsCheckTests.swift */,
 				4DEA67B57F87EAB488E9E2C9 /* SavedVersionTests.swift */,
@@ -128,6 +133,7 @@
 				0D4952E2999F3E0ED79DB3D4 /* InstalledPluginIndex.swift */,
 				AE39F6F0760E127F83C4EDF3 /* LiveDatabase.swift */,
 				0D5ACCB52114D1BB7270E72F /* Models.swift */,
+				0537BA7035604354C968580F /* MoreHosts.swift */,
 				01F8E4A120A031994B5A79A0 /* PluginLensApp.swift */,
 				DCF1F326FBC99AD11B5680AA /* PluginResolver.swift */,
 				1A45478445CCB4F1CC7D37C2 /* ProjectDataParser.swift */,
@@ -248,6 +254,7 @@
 				24704F103370924ED36C8BF5 /* InstalledPluginIndex.swift in Sources */,
 				5A918BAEDA363C395DA46C5A /* LiveDatabase.swift in Sources */,
 				4A0C2F332C460B017815C798 /* Models.swift in Sources */,
+				96003A3B3F72523AB0038D5B /* MoreHosts.swift in Sources */,
 				04CA8E00227347DD94211B81 /* PluginLensApp.swift in Sources */,
 				FA6349C0F658125847464243 /* PluginResolver.swift in Sources */,
 				DCC6A2E844A01873ADCB90F6 /* ProjectDataParser.swift in Sources */,
@@ -263,6 +270,7 @@
 			files = (
 				B43637857F3A6D50B31D6F52 /* AbletonTests.swift in Sources */,
 				43380200B92009AA43ECE92E /* HostFormatsTests.swift in Sources */,
+				23C44616692B693F04338411 /* MoreHostsTests.swift in Sources */,
 				10D56AEFBB100A51B48F1D45 /* ParserTests.swift in Sources */,
 				F19BF2FC936926911FC39A9F /* RealProjectsCheckTests.swift in Sources */,
 				4B73C551BC6E49F50034EE3E /* SavedVersionTests.swift in Sources */,

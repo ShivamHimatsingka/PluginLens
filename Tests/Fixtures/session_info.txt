@@ -1,0 +1,14 @@
+SESSION NAME:	demo
+SAMPLE RATE:	48000.000000
+SESSION START TIMECODE:	00:59:55:00
+TIMECODE FORMAT:	24 Frame
+
+
+T R A C K  L I S T I N G
+TRACK NAME:	Gtr
+COMMENTS:	
+USER DELAY:	0 Samples
+STATE: 
+PLUG-INS: 	Foo (mono)	
+CHANNEL 	EVENT   	CLIP NAME                     	START TIME    	END TIME      	DURATION      	STATE
+1       	1       	Gtr_01                        	   01:00:00:00	   01:00:10:00	   00:00:10:00	Unmuted

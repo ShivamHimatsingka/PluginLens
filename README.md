@@ -1,6 +1,6 @@
 # Plugin Lens
 
-**See every plugin a DAW project uses, which version it was saved with, and what you have installed now.** Logic Pro, Ableton Live, REAPER, Waveform and Ardour.
+**See every plugin a DAW project uses, which version it was saved with, and what you have installed now.** Logic Pro, Ableton Live, REAPER, FL Studio, Pro Tools (via its text export), Waveform and Ardour.
 
 Plugin Lens is a small native macOS app (Swift + SwiftUI, no dependencies). Point it at a project, or a folder full of them, and it lists
 each plugin with its manufacturer, format, the version the project was saved with (when the plugin records one), the version installed on
@@ -33,15 +33,17 @@ Your DAW only tells you after it fails to load something. Plugin Lens answers up
 | REAPER | `.rpp` | Built from the documented text format and tested on synthetic projects; **not yet validated on a real project**. |
 | Waveform (Tracktion) | `.tracktionedit` | As REAPER: format-based, synthetic tests only. |
 | Ardour | `.ardour` | As REAPER: format-based, synthetic tests only. LV2 plugins are listed but not checked. |
+| FL Studio | `.flp` | Built from the documented event format; the container and event parsing are tested on a real minimal file and synthetic projects. Plugin identification inside FL's "Fruity Wrapper" state is heuristic (plugin file path found in the state) and **not yet validated on a real project with plugins**. |
+| Pro Tools | `.txt` from File > Export > Session Info as Text | Reads the plug-in listing (manufacturer, name, **version**, format) and the per-track plug-in lines. Built from the export format, tested on a real small export (no plug-in listing in it) and synthetic ones. |
 | GarageBand, MainStage | `.band`, `.concert` | **Experimental.** Read with the Logic parser on the assumption that they share its project format; no real file has been tested. |
 
 "Validated" means checked against real files from that DAW. The others are implemented from the published or well-known file formats, are covered by
 unit tests built from that knowledge, and show a clear error rather than a wrong answer when a file doesn't match. If a project from one of them is read wrongly,
-please open an issue (the first lines of the file and the DAW version are enough). Not supported: Pro Tools, Cubase/Nuendo, FL Studio, Studio One, Bitwig, Reason.
+please open an issue (the first lines of the file and the DAW version are enough). **Listed but not readable**: Pro Tools sessions (`.ptx`, encrypted: export Session Info as Text instead), Cubase (`.cpr`), Nuendo (`.npr`), Bitwig (`.bwproject`), Cakewalk (`.cwp`) and Reason. They appear in the sidebar with an explanation so you can see they were skipped. Their formats are proprietary and nobody has published a parser I could verify; a sample project from any of them would let me reverse-engineer it the way Logic's was. Studio One is not listed: its `.song` extension is too generic to claim.
 
 ## Install
 
-1. Download `PluginLens-0.2.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
+1. Download `PluginLens-0.3.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
 2. The app is ad-hoc signed and **not notarized**, so macOS will block the first launch. Right-click the app, choose **Open**, then **Open** again; or run:
 
    ```bash
@@ -118,7 +120,7 @@ Logic version and, if you can share it, the output of `xxd` on the first 128 byt
 
 ## Tests
 
-88 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
+98 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
 bundles in a temp folder (so results don't depend on your machine), discovery, per-project failure isolation, and exports.
 Fixtures in `Tests/Fixtures` are built by `Tools/make_fixtures.py`: only about 40 bytes per plugin record are kept; track names, text, plugin state and everything else
 are dropped (ProjectData never contains audio). `mixed_missing` has one manufacturer code rewritten so it is guaranteed not to be installed.

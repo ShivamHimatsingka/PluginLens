@@ -137,3 +137,18 @@ parsers are defensive: anything unrecognised becomes an error or an "uncertain" 
 
 Matching and versions for all of these go through `HostResolver`: AU by codes (or exact "Vendor: Name"), VST/VST3/CLAP by bundle file name, saved versions by the
 same four-step discovery as for Logic, built-ins versioned with the host app (installed host version found by bundle identifier or app name).
+
+
+## FL Studio, Pro Tools and the unreadable ones (v0.3.0)
+
+- **FL Studio `.flp`**: `FLhd` (len 6: format, channels, PPQ) then `FLdt` (size) and a stream of events. Event id < 64: 1 data byte; < 128: 2; < 192: 4; otherwise a
+  7-bit little-endian varint size followed by that many bytes. Text events are ASCII or UTF-16LE with a NUL terminator. Used: 199 = FL version, 201 = a plugin's internal name,
+  203 = its display name, 212/213 = plugin state. FL's own plugins appear as their internal names ("Sytrus", "Fruity Limiter"); channel types ("Sampler", "Audio Clip", "Layer") are ignored.
+  Third-party VST/AU plugins are all "Fruity Wrapper": the plugin is named by event 203 and located by scanning the wrapper state for a path ending in `.vst3`, `.component`, `.vst`, `.clap` or `.dll`
+  (ASCII or UTF-16LE). If no path is found the format is unknown and the app tries VST3, AU, then VST and marks the result uncertain. The wrapper's internal layout was **not** decoded.
+- **Pro Tools**: `.ptx` is obfuscated/encrypted and is not read. Pro Tools' own "Export Session Info as Text" produces a tab-separated report starting `SESSION NAME:`. With the plug-in
+  option it contains a "P L U G - I N S  L I S T I N G" table (MANUFACTURER, PLUG-IN NAME, VERSION, FORMAT, STEMS, NUMBER OF PLUG-INS) and every track has a `PLUG-INS:` line of `Name (stems)` entries.
+  The listing's version is used as the "saved with" version. Installed AAX plugins are found in `/Library/Application Support/Avid/Audio/Plug-Ins` (and the per-user folder) by bundle name,
+  trying "Manufacturer Name" first. A real small export (no plug-in listing) was available; the listing table is implemented from the known layout and tested synthetically.
+- **Cubase `.cpr`, Nuendo `.npr`, Bitwig `.bwproject`, Cakewalk `.cwp`, Reason**: not parsed. The files are recognised so they can be listed with an explanation instead of silently ignored.
+  Guessing at proprietary binary files would produce plausible but wrong plugin lists, which is worse than none.

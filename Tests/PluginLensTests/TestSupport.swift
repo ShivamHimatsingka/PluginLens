@@ -6,6 +6,12 @@ import SQLite3
 private final class BundleToken {}
 
 enum Fixtures {
+    static func file(_ name: String, _ ext: String) throws -> Data {
+        let bundle = Bundle(for: BundleToken.self)
+        let url = bundle.url(forResource: name, withExtension: ext, subdirectory: "Fixtures") ?? bundle.url(forResource: name, withExtension: ext)
+        return try Data(contentsOf: XCTUnwrap(url, "missing fixture \(name).\(ext)"))
+    }
+
     static func data(_ name: String) throws -> Data {
         let bundle = Bundle(for: BundleToken.self)
         let url = bundle.url(forResource: name, withExtension: "projectdata", subdirectory: "Fixtures")
@@ -62,14 +68,15 @@ final class FakeInstall {
     var au: URL { root.appendingPathComponent("Components") }
     var vst: URL { root.appendingPathComponent("VST") }
     var vst3: URL { root.appendingPathComponent("VST3") }
+    var aax: URL { root.appendingPathComponent("AAX") }
 
     init() throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("PluginLensTests-\(UUID().uuidString)")
-        for d in [au, vst, vst3] { try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true) }
+        for d in [au, vst, vst3, aax] { try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true) }
     }
     deinit { try? FileManager.default.removeItem(at: root) }
 
-    var directories: SearchDirectories { SearchDirectories(audioUnits: [au], vst: [vst], vst3: [vst3]) }
+    var directories: SearchDirectories { var d = SearchDirectories(audioUnits: [au], vst: [vst], vst3: [vst3]); d.aax = [aax]; return d }
 
     @discardableResult
     func addComponent(_ bundleName: String, in dir: URL? = nil, short: String? = nil, build: String? = nil,
@@ -108,7 +115,7 @@ final class FakeInstall {
     }
 
     func index(logicVersion: String? = "12.2") -> InstalledPluginIndex {
-        InstalledPluginIndex(directories: SearchDirectories(audioUnits: [au], vst: [vst], vst3: [vst3], applications: [root.appendingPathComponent("Apps")]), logicVersion: logicVersion)
+        InstalledPluginIndex(directories: { var d = directories; d.applications = [root.appendingPathComponent("Apps")]; return d }(), logicVersion: logicVersion)
     }
 }
 

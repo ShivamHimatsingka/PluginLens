@@ -10,6 +10,7 @@ struct SearchDirectories: Sendable {
     /// Folder holding Ableton Live's `Live-plugins-N.db`, if any.
     var liveDatabase: URL? = nil
     var clap: [URL] = []
+    var aax: [URL] = []
 
     static var standard: SearchDirectories {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -23,7 +24,8 @@ struct SearchDirectories: Sendable {
             vst3: dirs("VST3"),
             applications: [URL(fileURLWithPath: "/Applications"), home.appendingPathComponent("Applications")],
             liveDatabase: LiveDatabase.standardDirectory,
-            clap: dirs("CLAP"))
+            clap: dirs("CLAP"),
+            aax: [URL(fileURLWithPath: "/Library/Application Support/Avid/Audio/Plug-Ins"), home.appendingPathComponent("Library/Application Support/Avid/Audio/Plug-Ins")])
     }
 }
 
@@ -70,7 +72,7 @@ struct InstalledPluginIndex: Sendable {
             for appex in Self.appExtensions(in: dir) { components.append(contentsOf: Self.components(in: appex)) }
         }
         for c in components { byKey[c.key, default: []].append(c) }
-        for (dirs, format, ext) in [(directories.vst, PluginFormat.vst, "vst"), (directories.vst3, .vst3, "vst3"), (directories.clap, .clap, "clap")] {
+        for (dirs, format, ext) in [(directories.vst, PluginFormat.vst, "vst"), (directories.vst3, .vst3, "vst3"), (directories.clap, .clap, "clap"), (directories.aax, .aax, "aaxplugin")] {
             for dir in dirs {
                 for bundle in Self.bundles(in: dir, ext: ext) {
                     let name = bundle.deletingPathExtension().lastPathComponent
@@ -109,7 +111,7 @@ struct InstalledPluginIndex: Sendable {
 
     func otherFormats(forPluginNamed name: String) -> [(format: PluginFormat, version: String)] {
         let found = vstNames[Self.normalize(name)] ?? [:]
-        return [PluginFormat.vst, .vst3, .clap].compactMap { f in found[f].map { (f, $0) } }
+        return [PluginFormat.vst, .vst3, .clap, .aax].compactMap { f in found[f].map { (f, $0) } }
     }
 
     static func bundleVersion(_ bundle: URL) -> String? {
