@@ -45,11 +45,22 @@ struct HostDocument: Sendable {
     var plugins: [FoundPlugin]
     var warnings: [String] = []
 
-    /// Merges duplicates (same plugin used on several tracks) and keeps first-seen order.
+    /// Merges duplicates (same plugin used on several tracks) and keeps first-seen order. Entries that name the same plugin but differ in how much
+    /// the project recorded about them (one has a class ID, another does not) are merged too.
     static func merged(_ list: [FoundPlugin]) -> [FoundPlugin] {
-        var order: [String] = [], map: [String: FoundPlugin] = [:]
+        var order: [String] = [], map: [String: FoundPlugin] = [:], byName: [String: String] = [:]
         for p in list {
-            if var m = map[p.key] { m.count += 1; m.states += p.states; map[p.key] = m } else { order.append(p.key); map[p.key] = p }
+            let nameKey = InstalledPluginIndex.normalize(p.name) + "|" + (p.vendor ?? "") + "|" + (p.isHostBuiltIn ? "b" : "p")
+            let key = p.key
+            let target = map[key] != nil ? key : byName[nameKey]
+            if let t = target, var m = map[t] {
+                m.count += p.count; m.states += p.states
+                if m.classID == nil { m.classID = p.classID }
+                if m.knownSaved.isEmpty { m.knownSaved = p.knownSaved }
+                map[t] = m
+            } else {
+                order.append(key); map[key] = p; byName[nameKey] = key
+            }
         }
         return order.compactMap { map[$0] }
     }

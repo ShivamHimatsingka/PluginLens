@@ -30,6 +30,7 @@ final class RealProjectsCheckTests: XCTestCase {
             }
         }
         print("REALCHECK projects=\(projects.count) loaded=\(loaded) unsavedStubs=\(unsaved) failed=\(failed.count) plugins=\(plugins) missing=\(missing.count) unknown=\(unknown.count) uncertain=\(uncertain) seconds=\(String(format: "%.2f", Date().timeIntervalSince(start)))")
+        if ProcessInfo.processInfo.environment["PLUGINLENS_LISTALL"] != nil || FileManager.default.fileExists(atPath: "/tmp/pluginlens_listall") { for p in projects { if case .loaded(let r) = ProjectLoader.load(p, index: index) { print("REALCHECK LISTALL \(p.name): " + r.plugins.map { "\($0.name) [\($0.format.rawValue) \($0.savedVersionText) \($0.status.rawValue)]" }.joined(separator: "; ")) } } }
         print("REALCHECK versionChecks=\(checks.sorted { $0.key < $1.key })")
         savedAU.sorted().forEach { print("REALCHECK AU \($0)") }
         Set(changed).sorted().forEach { print("REALCHECK CHANGED \($0)") }

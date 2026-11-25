@@ -185,3 +185,19 @@ Checked on one real Cubase 10.5.20 project and one real Bitwig Studio 5.3 projec
   The saving version is the `application_version_name` entry of the `meta` object.
 - **Reason `.reason`** (looked at, not read): an IFF-style header (`X15_FILE`, `FORM`/`CAT` chunks with the program version and the ReFill list) followed by a large region that is mostly `0xFE` bytes and
   high-entropy data; the devices live there and the encoding was not worked out. **Studio One and Cakewalk**: no sample project could be found, so nothing was attempted.
+
+
+## Cubase, Bitwig, Studio One and Reason (v0.6.0)
+
+- **Cubase / Nuendo, checked on 11 projects (SX 3 to 14)**: the layout is the same throughout. After the key `PAppVersion\0` (9 bytes on, 13 for a `RIF2` file) come one-byte-length tokens: application, `Version x.y.z`, release date, architecture
+  (absent before 4.5). Each plugin is `Plugin UID\0`, 22 bytes, the 32-digit class ID token, `Plugin Name` and its value; for a renamed instrument track that value is the track title and the real name follows under `Original Plugin Name`.
+  VST2 plugins appear as a wrapper class ID `"VST" + 4-character VST2 ID + 9 characters of the name` (`VSTsyl1sylenth1` for Sylenth1). The lists match the known contents of the public test projects of github.com/fgimian/cubase-project-plugins (MIT).
+- **Bitwig, checked on 11 projects (Bitwig 2.4 to 5.3)**: besides the VST3 device records (fields 0x0CE4 class ID, 0x0C5E plugin version such as `2.0.5.0`, 0x0199 name), plugins are referenced by file path:
+  `...\VST3\RapturePro_64.vst3`, `...\VSTPlugins 64 bit\Kontakt 5.dll` (VST2), and `...\library\devices\EQ-2.bwdevice` for Bitwig's own devices. Windows projects leave the name field empty and put the path just before the record.
+- **DAWproject (official reference)**: `deviceID` is the VST3 class ID as a canonical UUID, the VST2 unique ID in decimal, or the CLAP plugin ID verbatim (AU has no defined form); `pluginVersion` is the plugin version; `<State path=...>` names the saved state
+  inside the archive (`.vstpreset`, `.clap-preset`, FXB/FXP). Built-in devices are `BuiltinDevice`, `Equalizer`, `Compressor`, `NoiseGate`, `Limiter`.
+- **Studio One native songs**: a ZIP whose plugin information is in `Song/song.xml`, `Song/mediapool.xml` and `Devices/audiomixer.xml` (see the reader's comments). Taken from a public community tool's source; no real song was available.
+- **Reason**: an official Reason Studios example is the same song in four formats (`.reason`, Ableton `.als`, Logic `.logicx`, Pro Tools `.ptx`). In the `.reason` file a plain IFF-style header (`X15_FILE`, `FORM`/`CAT` chunks, program version, ReFill list) is followed by
+  a `VS_V` / `BODY` / `RS1100` block: a constant header (`e7 1f de 31 00 00 40 00`) and then a high-entropy stream. The same block is what the Reason Rack Plugin stores as its plugin state inside the Ableton and Logic projects.
+  Identical racks produce identical bytes (so it is compression, not per-save encryption), but none of zlib, raw deflate, gzip, bzip2, xz, LZMA (several parameter sets), simple XOR/rotation transforms, or searching for the
+  stream's bytes in the other formats reproduces anything readable. The device list was therefore not recovered. The Reason Rack Plugin itself is listed correctly when it is used inside another DAW.

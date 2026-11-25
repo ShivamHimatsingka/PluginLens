@@ -5,18 +5,18 @@ final class CubaseBitwigTests: XCTestCase {
     // MARK: Builders that follow the layouts seen in real Cubase 10.5 and Bitwig 5.3 projects
 
     private func u32(_ n: Int) -> [UInt8] { [UInt8(n >> 24 & 255), UInt8(n >> 16 & 255), UInt8(n >> 8 & 255), UInt8(n & 255)] }
-    private func cubaseKey(_ k: String) -> [UInt8] { u32(k.utf8.count + 1) + Array(k.utf8) + [0] }
-    private func cubaseString(_ key: String, _ v: String) -> [UInt8] {
-        cubaseKey(key) + [0, 8] + u32(v.utf8.count + 1 + 3) + Array(v.utf8) + [0, 0xEF, 0xBB, 0xBF]
-    }
-    private func cubase(app: String = "Cubase", version: String = "10.5.20", plugins: [(guid: String, name: String)]) -> Data {
-        var body: [UInt8] = Array("ROOT".utf8) + [0, 0, 0, 0x20] + cubaseKey("Version") + Array("PAppVersion".utf8) + [0, 0, 0, 0x52, 0, 0, 0, 7] + Array(app.utf8) + [0, 0, 0, 0, 0x10]
-        body += Array("Version \(version)".utf8) + [0, 0, 0, 0, 0x0C] + Array("May  5 2020".utf8) + [0, 0, 0, 1, 0x90, 0, 0, 0, 6] + Array("WIN64".utf8) + [0]
+    private func tok(_ s: String) -> [UInt8] { [UInt8(s.utf8.count + 1)] + Array(s.utf8) + [0] }
+    /// Layout of real Cubase projects (SX3 to 14): one-byte-length tokens at fixed distances after the `PAppVersion` and `Plugin UID` keys.
+    private func cubase(app: String = "Cubase", version: String = "10.5.20", plugins: [(guid: String, name: String)], original: [String: String] = [:], form: String = "RIFF") -> Data {
+        var body: [UInt8] = Array("ROOT".utf8) + [0, 0, 0, 0x20] + Array("PAppVersion\0".utf8) + [UInt8](repeating: 0, count: form == "RIF2" ? 13 : 9)
+        body += tok(app) + [0, 0, 0] + tok("Version \(version)") + [0, 0, 0] + tok("May  5 2020") + [UInt8](repeating: 0, count: 7) + tok("WIN64")
         for p in plugins {
-            body += cubaseKey("Plugin UID") + [0, 0, 2, 0, 6, 0, 0, 0, 1] + cubaseString("GUID", p.guid) + cubaseString("Plugin Name", p.name) + cubaseKey("Audio Input Count") + [0, 0, 1, 0, 0, 0, 0]
+            body += Array("Plugin UID\0".utf8) + [UInt8](repeating: 0, count: 22) + tok(p.guid) + [0, 0, 0] + tok("Plugin Name") + [0, 0, 0, 0, 0] + tok(p.name) + [0, 0, 0]
+            if let o = original[p.name] { body += tok("Original Plugin Name") + [0, 0, 0, 0, 0] + tok(o) }
+            body += [UInt8](repeating: 0, count: 8)
         }
         let payload = Array("NUND".utf8) + body
-        return Data(Array("RIFF".utf8) + [UInt8(payload.count & 255), UInt8(payload.count >> 8 & 255), UInt8(payload.count >> 16 & 255), UInt8(payload.count >> 24 & 255)] + payload + [UInt8](repeating: 0, count: 32))
+        return Data(Array(form.utf8) + [UInt8(payload.count & 255), UInt8(payload.count >> 8 & 255), UInt8(payload.count >> 16 & 255), UInt8(payload.count >> 24 & 255)] + payload + [UInt8](repeating: 0, count: 32))
     }
     private func field(_ id: Int, _ text: String) -> [UInt8] { [0, 0, UInt8(id >> 8), UInt8(id & 255), 8] + u32(text.utf8.count) + Array(text.utf8) }
 
@@ -56,6 +56,16 @@ final class CubaseBitwigTests: XCTestCase {
         XCTAssertEqual(doc.plugins.map(\.name), ["Mystic", "FabFilter Pro-Q 4"], "mixer plumbing is skipped and duplicates merge")
         XCTAssertTrue(doc.plugins[0].isHostBuiltIn); XCTAssertEqual(doc.plugins[0].vendor, "Steinberg")
         XCTAssertEqual(doc.plugins[1].format, .vst3); XCTAssertEqual(doc.plugins[1].classID, "11111111222222223333333344444444"); XCTAssertEqual(doc.plugins[1].count, 2)
+    }
+
+    func testRenamedTrackUsesTheOriginalPluginNameAndRIF2IsAccepted() throws {
+        let doc = try CubaseParser.parse(cubase(plugins: [("D39D5B69D6AF42FA1234567868495645", "My Lead")], original: ["My Lead": "Hive"], form: "RIF2"))
+        XCTAssertEqual(doc.plugins.map(\.name), ["Hive"]); XCTAssertEqual(doc.savedVersion, "10.5.20")
+    }
+
+    func testVST2WrappedPluginsAreReportedAsVST2() throws {
+        let doc = try CubaseParser.parse(cubase(plugins: [("56535473796C3173796C656E74683100", "Sylenth1"), ("D39D5B69D6AF42FA1234567868495645", "Hive")]))
+        XCTAssertEqual(doc.plugins.map(\.format), [.vst, .vst3])
     }
 
     func testNuendoIsRecognisedFromTheSavingApplication() throws {

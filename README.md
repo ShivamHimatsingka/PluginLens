@@ -29,15 +29,16 @@ Your DAW only tells you after it fails to load something. Plugin Lens answers up
 | DAW | Files | Checked against |
 |---|---|---|
 | Logic Pro | `.logicx` | About 60 real projects saved by Logic Pro Creator Studio 12.2. |
-| Ableton Live 9-12 | `.als` | The 26 sets bundled with Live 12.4.6 and three public sets (Live 9, 11, 12). Third-party plugin entries were checked only through Live's own plugin database, not on a real set that contains them. |
+| Ableton Live 9-12 | `.als` | The 26 sets bundled with Live 12.4.6, three public sets (Live 9, 11, 12) and an official Reason Studios example set made with Live 10.1.9 that contains third-party VST3 plugins (the Reason Rack Plugin). |
 | REAPER | `.rpp` | A real REAPER 7.28 (macOS) project with a VST3 plugin, and one more public project. Plugin state and saved versions are read from it. |
 | FL Studio | `.flp` | A real FL Studio 20.8.4 project with native plugins and wrapped VST2 and VST3 plugins. |
 | Waveform (Tracktion) | `.tracktionedit` | Three public edits (built-in plugins, VST plugin entries, racks). |
 | Ardour, Mixbus | `.ardour` | Two public sessions (LV2 and built-in processors). AU and VST3 processors, as saved on macOS, were not seen. |
-| Cubase, Nuendo | `.cpr`, `.npr` | One real Cubase 10.5 project (VST3 and bundled Steinberg plugins, saving version). Nuendo uses the same file layout but no Nuendo file was available. |
-| Bitwig Studio | `.bwproject` | One real Bitwig 5.3 project with a VST3 plugin (name, class ID, the plugin version that saved it, and its saved state). Bitwig's own devices and AU/CLAP plugins were not seen, so only VST3 plugins are listed. |
+| Cubase, Nuendo | `.cpr`, `.npr` | 11 real Cubase projects from SX 3 to Cubase 14 whose plugin lists are known (public test projects of an MIT-licensed tool): the plugin lists and saving versions match for every one. Nuendo uses the same layout; no Nuendo file was available. |
+| Bitwig Studio | `.bwproject` | 11 public projects saved by Bitwig 2.4 to 5.3 on Windows and Linux: VST3 plugins (with the version that saved them), VST2 and VST3 plugin files, and Bitwig's own devices. AU and CLAP plugins were not present in any sample. |
 | LMMS | `.mmp`, `.mmpz` | Four public demo projects. |
-| DAWproject (Bitwig Studio, Studio One, Cubase, Nuendo and others export it) | `.dawproject` | The official schema (`Project.xsd`); no real exported file was available, only a schema-valid sample. |
+| DAWproject (exported by Bitwig Studio, Studio One 6.5+, Cubase and Nuendo 14+, Cubasis, VST Live, n-Track) | `.dawproject` | The official specification and schema: every plugin type, `deviceID` forms, `pluginVersion` and state files are handled; sample documents validate against `Project.xsd`. No real exported file was available. |
+| Studio One | `.song` | Read from the file structure documented by a public community tool (`Song/song.xml`, `mediapool.xml`, `audiomixer.xml`); **not checked against a real song**. Exporting a DAWproject file is more reliable. |
 | Pro Tools | `.txt` from File > Export > Session Info as Text | A small real export. The plug-in listing table (manufacturer, name, **version**, format) is covered by hand-written examples only. |
 | GarageBand, MainStage | `.band`, `.concert` | **Experimental.** Read with the Logic parser on the assumption that they share its project format; no real file was available. |
 
@@ -45,12 +46,12 @@ Where a row says something wasn't checked, the support follows the format as doc
 or an *uncertain* row, not a confident wrong answer. If a project is read wrongly, please open an issue (the DAW version and the first lines of the file are enough).
 
 **Listed but not readable.** These are shown in the sidebar with an explanation so you can see they were skipped: Pro Tools sessions (`.ptx`: export Session Info as Text instead),
-Studio One (`.song`), Cakewalk (`.cwp`) and Reason (`.reason`). I could not find a public sample of a Studio One or Cakewalk project, and a Reason song keeps its device list in a
-compressed part of the file that isn't decoded. For Studio One (6.5 and later) the simplest route is to export the song as a **DAWproject** file and open that.
+Cakewalk (`.cwp`) and Reason (`.reason`). A Reason song keeps its device list in a compressed stream that no standard decompressor opens (details in `docs/FORMAT.md`); no public description of
+it exists. Cakewalk: no sample project could be found.
 
 ## Install
 
-1. Download `PluginLens-0.5.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
+1. Download `PluginLens-0.6.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
 2. The app is ad-hoc signed and **not notarized**, so macOS will block the first launch. Right-click the app, choose **Open**, then **Open** again; or run:
 
    ```bash
@@ -127,12 +128,13 @@ Logic version and, if you can share it, the output of `xxd` on the first 128 byt
 
 ## Tests
 
-119 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
+130 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
 bundles in a temp folder (so results don't depend on your machine), discovery, per-project failure isolation, and exports.
 Fixtures in `Tests/Fixtures` are built by `Tools/make_fixtures.py`: only about 40 bytes per plugin record are kept; track names, text, plugin state and everything else
 are dropped (ProjectData never contains audio). `mixed_missing` has one manufacturer code rewritten so it is guaranteed not to be installed.
 
-An opt-in check runs against your own library: set `PLUGINLENS_PROJECTS` to a folder and run the `RealProjectsCheckTests` test.
+Opt-in checks run against real files: set `PLUGINLENS_PROJECTS` to a folder of your own projects (`RealProjectsCheckTests`), or `PLUGINLENS_CUBASE_TESTDATA` to the testdata folder of
+[fgimian/cubase-project-plugins](https://github.com/fgimian/cubase-project-plugins) to compare against known plugin lists (`CubaseGroundTruthTests`).
 It prints a summary and fails if any project fails unexpectedly.
 
 ## Contributing

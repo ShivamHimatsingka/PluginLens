@@ -35,7 +35,7 @@ enum ProjectScanner {
         "cpr": ("Cubase", "This file does not have the header of a Cubase or Nuendo project, so it was not read."),
         "npr": ("Nuendo", "This file does not have the header of a Cubase or Nuendo project, so it was not read."),
         "cwp": ("Cakewalk", "Cakewalk projects aren't supported yet."),
-        "reason": ("Reason", "Reason songs aren't supported yet: their device list is stored in a compressed part of the file that isn't decoded."),
+        "reason": ("Reason", "Reason songs aren't supported yet: their device list is stored in a compressed stream that couldn't be decoded."),
     ]
 
     static func hasPrefix(_ url: URL, _ text: String) -> Bool {
@@ -73,7 +73,7 @@ enum ProjectScanner {
         if (ext == "mmp" || ext == "mmpz"), !isDir { return DiscoveredProject(url: url, kind: .lmms) }
         if ext == "flp", !isDir { return DiscoveredProject(url: url, kind: .flStudio) }
         if ext == "txt", !isDir, isProToolsExport(url) { return DiscoveredProject(url: url, kind: .proToolsText) }
-        if ext == "song", !isDir, isZip(url) { return DiscoveredProject(url: url, kind: .unsupported(daw: "Studio One", hint: "Native Studio One songs aren't supported yet. Export the song as a DAWproject file (Studio One 6.5 and later) and open that instead.")) }
+        if ext == "song", !isDir, isZip(url) { return DiscoveredProject(url: url, kind: .studioOne) }
         if !isDir, let u = unsupportedKinds[ext] { return DiscoveredProject(url: url, kind: .unsupported(daw: u.0, hint: u.1)) }
         // GarageBand and MainStage are built on Logic's engine; their packages are read with the Logic parser (experimental).
         if (ext == "band" || ext == "concert"), isDir { return DiscoveredProject(url: url, kind: .logicx) }
@@ -161,6 +161,7 @@ enum ProjectLoader {
         case .flStudio: return FLStudioParser.parse
         case .dawproject: return DawprojectParser.parse
         case .cubase: return CubaseParser.parse
+        case .studioOne: return StudioOneSongParser.parse
         case .bitwig: return BitwigParser.parse
         case .lmms: return LMMSParser.parse
         case .proToolsText: return ProToolsTextParser.parse
