@@ -58,16 +58,23 @@ enum FLStudioParser {
         var found: [FoundPlugin] = []
         for g in groups {
             if g.internal == "Fruity Wrapper" {
-                let paths = g.states.flatMap { pluginPaths(in: $0) }
-                let path = paths.first
-                var p = FoundPlugin(format: .vst, name: g.name ?? (path.map { (($0 as NSString).lastPathComponent as NSString).deletingPathExtension } ?? "Wrapped plugin"),
-                                    vendor: nil, fileName: path.map { ($0 as NSString).lastPathComponent }, states: g.states)
-                switch (path as NSString?)?.pathExtension.lowercased() {
+                // Wrapper state: u32 type (8 or 10), then chunks of { u32 id, u64 size, bytes }:
+                // 51 = VST2 four-character ID, 53 = the plugin's own state, 54 = name, 55 = plugin path, 56 = vendor.
+                let chunks = g.states.compactMap { wrapperChunks($0) }.first
+                let name = chunks?[54].map(string) ?? ""
+                let path = chunks?[55].map(string) ?? g.states.flatMap { pluginPaths(in: $0) }.first
+                let file = path.map { $0.replacingOccurrences(of: "\\", with: "/") }.map { ($0 as NSString).lastPathComponent }
+                let ext = file.map { ($0 as NSString).pathExtension.lowercased() } ?? ""
+                var p = FoundPlugin(format: .vst, name: !name.isEmpty ? name : (g.name ?? file.map { ($0 as NSString).deletingPathExtension } ?? "Wrapped plugin"),
+                                    vendor: chunks?[56].map(string).flatMap { $0.isEmpty ? nil : $0 }, fileName: file,
+                                    states: chunks?[53].map { [$0] } ?? g.states)
+                switch ext {
                 case "vst3": p.format = .vst3
                 case "component": p.format = .au
                 case "clap": p.format = .clap
                 case "vst", "dll": p.format = .vst
-                default: p.formatGuess = true
+                default:
+                    if chunks?[51] != nil { p.format = .vst } else { p.formatGuess = true }   // VST2 plugins carry a four-character ID; VST3/AU do not
                 }
                 found.append(p)
             } else if !channelTypes.contains(g.internal) {
@@ -80,6 +87,25 @@ enum FLStudioParser {
     }
 
     // MARK: Helpers
+
+    static func string(_ d: Data) -> String { String(decoding: d, as: UTF8.self).trimmingCharacters(in: CharacterSet(charactersIn: "\0").union(.whitespaces)) }
+
+    /// The chunks of a wrapper's plugin event, or nil if the blob does not have that layout.
+    static func wrapperChunks(_ blob: Data) -> [Int: Data]? {
+        let b = [UInt8](blob)
+        guard b.count >= 16, b[0] == 8 || b[0] == 10, b[1] == 0, b[2] == 0, b[3] == 0 else { return nil }
+        var i = 4
+        var out: [Int: Data] = [:]
+        while i + 12 <= b.count {
+            let id = Int(le32(b, i))
+            var size = 0
+            for k in 0..<8 { size |= Int(b[i + 4 + k]) << (8 * k) }
+            i += 12
+            guard size >= 0, size <= b.count - i else { break }
+            out[id] = Data(b[i..<i + size]); i += size
+        }
+        return out[54] != nil || out[55] != nil ? out : nil
+    }
 
     static func le32(_ b: [UInt8], _ o: Int) -> UInt32 { UInt32(b[o]) | UInt32(b[o + 1]) << 8 | UInt32(b[o + 2]) << 16 | UInt32(b[o + 3]) << 24 }
 

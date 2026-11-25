@@ -32,12 +32,18 @@ enum ProjectScanner {
         "ptx": ("Pro Tools", "Pro Tools sessions are encrypted. In Pro Tools use File > Export > Session Info as Text, include the plug-in listing, and open the .txt it creates."),
         "ptf": ("Pro Tools", "Pro Tools sessions are encrypted. In Pro Tools use File > Export > Session Info as Text, include the plug-in listing, and open the .txt it creates."),
         "pts": ("Pro Tools", "Pro Tools sessions are encrypted. In Pro Tools use File > Export > Session Info as Text, include the plug-in listing, and open the .txt it creates."),
-        "cpr": ("Cubase", "Its project format is proprietary and has not been reverse-engineered here. In Cubase, Project > Plug-in Information lists a project's plugins."),
-        "npr": ("Nuendo", "Its project format is proprietary and has not been reverse-engineered here. In Nuendo, Project > Plug-in Information lists a project's plugins."),
-        "bwproject": ("Bitwig Studio", "Its project format is proprietary and has not been reverse-engineered here."),
-        "cwp": ("Cakewalk", "Its project format is proprietary and has not been reverse-engineered here."),
-        "reason": ("Reason", "Its project format is proprietary and has not been reverse-engineered here."),
+        "cpr": ("Cubase", "Native Cubase projects aren't supported yet. Export it as a DAWproject file (Bitwig Studio, Studio One and recent Cubase and Nuendo versions can) and open that instead. In Cubase, Project > Plug-in Information also lists a project's plugins."),
+        "npr": ("Nuendo", "Native Nuendo projects aren't supported yet. Export it as a DAWproject file (Bitwig Studio, Studio One and recent Cubase and Nuendo versions can) and open that instead. In Nuendo, Project > Plug-in Information also lists a project's plugins."),
+        "bwproject": ("Bitwig Studio", "Native Bitwig projects aren't supported yet. Export it with File > Export > DAWproject and open that instead."),
+        "cwp": ("Cakewalk", "Cakewalk projects aren't supported yet."),
+        "reason": ("Reason", "Reason songs aren't supported yet."),
     ]
+
+    static func isZip(_ url: URL) -> Bool {
+        guard let h = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? h.close() }
+        return (try? h.read(upToCount: 4)) == Data([0x50, 0x4B, 0x03, 0x04])
+    }
 
     /// Pro Tools "Export Session Info as Text" files start with `SESSION NAME:`.
     static func isProToolsExport(_ url: URL) -> Bool {
@@ -56,8 +62,11 @@ enum ProjectScanner {
         if ext == "rpp", !isDir { return DiscoveredProject(url: url, kind: .reaper) }
         if ext == "tracktionedit", !isDir { return DiscoveredProject(url: url, kind: .waveform) }
         if ext == "ardour", !isDir { return DiscoveredProject(url: url, kind: .ardour) }
+        if ext == "dawproject", !isDir { return DiscoveredProject(url: url, kind: .dawproject) }
+        if (ext == "mmp" || ext == "mmpz"), !isDir { return DiscoveredProject(url: url, kind: .lmms) }
         if ext == "flp", !isDir { return DiscoveredProject(url: url, kind: .flStudio) }
         if ext == "txt", !isDir, isProToolsExport(url) { return DiscoveredProject(url: url, kind: .proToolsText) }
+        if ext == "song", !isDir, isZip(url) { return DiscoveredProject(url: url, kind: .unsupported(daw: "Studio One", hint: "Native Studio One songs aren't supported yet. Export the song as a DAWproject file (Studio One 6.5 and later) and open that instead.")) }
         if !isDir, let u = unsupportedKinds[ext] { return DiscoveredProject(url: url, kind: .unsupported(daw: u.0, hint: u.1)) }
         // GarageBand and MainStage are built on Logic's engine; their packages are read with the Logic parser (experimental).
         if (ext == "band" || ext == "concert"), isDir { return DiscoveredProject(url: url, kind: .logicx) }
@@ -143,6 +152,8 @@ enum ProjectLoader {
         case .waveform: return WaveformParser.parse
         case .ardour: return ArdourParser.parse
         case .flStudio: return FLStudioParser.parse
+        case .dawproject: return DawprojectParser.parse
+        case .lmms: return LMMSParser.parse
         case .proToolsText: return ProToolsTextParser.parse
         default: return nil
         }
@@ -158,7 +169,7 @@ enum ProjectLoader {
         catch let e as ProjectError { return .failed(e) }
         catch { return .failed(.corrupt(error.localizedDescription)) }
         let modified = (try? project.url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-        let plugins = doc.plugins.map { HostResolver.resolve($0, host: doc.host, savedHostVersion: doc.savedVersion, index: index) }
+        let plugins = doc.plugins.map { HostResolver.resolve($0, host: doc.host, hostLabel: doc.hostLabel, savedHostVersion: doc.savedVersion, index: index) }
         return .loaded(ProjectReport(project: project, projectDataURL: project.url, lastModified: modified,
                                      lastSavedFrom: doc.savedWith, plugins: plugins, warnings: doc.warnings))
     }

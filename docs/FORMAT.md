@@ -152,3 +152,21 @@ same four-step discovery as for Logic, built-ins versioned with the host app (in
   trying "Manufacturer Name" first. A real small export (no plug-in listing) was available; the listing table is implemented from the known layout and tested synthetically.
 - **Cubase `.cpr`, Nuendo `.npr`, Bitwig `.bwproject`, Cakewalk `.cwp`, Reason**: not parsed. The files are recognised so they can be listed with an explanation instead of silently ignored.
   Guessing at proprietary binary files would produce plausible but wrong plugin lists, which is worse than none.
+
+
+## What was checked on real files (v0.4.0)
+
+Public sample projects were used to check the parsers; they are not shipped in this repository (their licences differ), only tiny derived or hand-made fixtures are.
+
+- **FL Studio 20.8.4 project**: confirmed event ids 199 (version), 201 (internal name), 203 (display name), 212/213 (plugin state). A third-party plugin is an event 201 `Fruity Wrapper`; its event-213 payload is
+  `u32 type (8 or 10)` followed by chunks `{u32 id, u64 size, bytes}` with 51 = VST2 four-character ID, 53 = plugin state, 54 = plugin name, 55 = plugin path, 56 = vendor. The display name in event 203 can be generic
+  ("VST2") or carry a suffix ("OTT (failed to load)"), so the chunk-54 name is preferred. Paths are as saved by the originating machine (Windows paths without extension for VST2).
+- **REAPER 7.28 (macOS)**: FX blocks are `<VST "VST3: Name (Vendor)" File.vst3 0 "" id{CLASSID} ""` followed by base64 state. The state is written as several base64 segments, each closed by a `=`-padded line,
+  so every segment is decoded separately. The plugin's own version is found in the state (Neural Amp Modeler: 0.7.12).
+- **Waveform**: `<PLUGIN type=...>` with `vst` entries carrying `filename`, `name`, `manufacturer`, `uid`; built-in plugins are other `type` values (`8bandEq`, `comp`, `naturalReverb`), and `rack`/`volume`/`level` are structure.
+- **Ardour**: `<Processor type="lv2" name=... unique-id=...>`; Ardour's own processors have types `amp`, `trim`, `meter`, `main-outs`.
+- **LMMS**: `.mmpz` = 4-byte big-endian length + zlib stream; `<instrument name=...>`, `<effect name="ladspaeffect">` with the LADSPA plugin named in a `<key>` element.
+- **Ableton**: sets from Live 9 (schema 4), 11 and 12 (schema 5); some are stored as plain XML rather than gzip, which is accepted.
+- **DAWproject**: `project.xml` in a ZIP archive, validated with `xmllint --schema Project.xsd`. `Vst2Plugin`/`Vst3Plugin`/`ClapPlugin`/`AuPlugin` carry `deviceName`, `deviceVendor` and `pluginVersion`
+  (the version the exporting DAW recorded, used as the saved version); built-ins are `BuiltinDevice`, `Equalizer`, `Compressor`, `NoiseGate`, `Limiter`.
+- **Bitwig `.bwproject`** was looked at (`BtWg` header, hex-text fields, then typed binary records) but the plugin records could not be identified with confidence, so it is not read.

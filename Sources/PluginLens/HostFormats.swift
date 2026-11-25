@@ -33,6 +33,8 @@ struct FoundPlugin: Hashable, Sendable {
 
 struct HostDocument: Sendable {
     var host: Host
+    /// For hosts that share one file format (DAWproject): the exporting application's name.
+    var hostLabel: String? = nil
     /// How the project describes the program that saved it, e.g. "REAPER 7.27".
     var savedWith: String?
     /// The dotted version in `savedWith`.
@@ -58,8 +60,8 @@ struct HostDocument: Sendable {
 // MARK: - Matching
 
 enum HostResolver {
-    static func resolve(_ p: FoundPlugin, host: Host, savedHostVersion: String?, index: InstalledPluginIndex) -> PluginEntry {
-        if p.isHostBuiltIn || p.format == .jsfx { return builtIn(p, host: host, savedHostVersion: savedHostVersion, index: index) }
+    static func resolve(_ p: FoundPlugin, host: Host, hostLabel: String? = nil, savedHostVersion: String?, index: InstalledPluginIndex) -> PluginEntry {
+        if p.isHostBuiltIn || p.format == .jsfx { return builtIn(p, host: host, hostLabel: hostLabel, savedHostVersion: savedHostVersion, index: index) }
 
         var saved: [SavedVersion] = p.knownSaved
         var stateCodes: FoundPlugin.AUCodes?
@@ -93,20 +95,22 @@ enum HostResolver {
         return e
     }
 
-    private static func builtIn(_ p: FoundPlugin, host: Host, savedHostVersion: String?, index: InstalledPluginIndex) -> PluginEntry {
-        let now = index.installedVersion(of: host).map { "\($0) (\(host.displayName))" }
-        var e = PluginEntry(id: p.key, name: p.name, manufacturer: p.vendor ?? host.displayName, format: p.format,
+    private static func builtIn(_ p: FoundPlugin, host: Host, hostLabel: String?, savedHostVersion: String?, index: InstalledPluginIndex) -> PluginEntry {
+        let label = hostLabel ?? host.displayName
+        let installedHost = hostLabel != nil ? index.appVersion(namePrefix: hostLabel!) : index.installedVersion(of: host)
+        let now = installedHost.map { "\($0) (\(label))" }
+        var e = PluginEntry(id: p.key, name: p.name, manufacturer: p.vendor ?? label, format: p.format,
                             installedVersion: now, status: p.format == .jsfx ? .installed : (now == nil ? .versionUnknown : .installed),
                             isUncertain: false,
-                            note: now == nil ? "\(host.displayName) is not installed, so its built-in version can't be read."
-                                             : "Built-in devices are versioned with \(host.displayName) itself.",
+                            note: now == nil ? "\(label) is not installed, so its built-in version can't be read."
+                                             : "Built-in devices are versioned with \(label) itself.",
                             otherFormats: [], codes: "", bundlePath: nil)
         if let k = p.knownSaved.first {   // e.g. Pro Tools' plug-in listing: a version, but not Pro Tools' own
             e.savedVersion = k.version; e.savedVersionSource = k.source; e.versionCheck = .cannotCompare
         } else if let v = savedHostVersion {
-            e.savedVersion = "\(v) (\(host.displayName))"
+            e.savedVersion = "\(v) (\(label))"
             e.savedVersionSource = "the project's own header"
-            e.versionCheck = PluginResolver.compare(saved: [v], installed: index.installedVersion(of: host))
+            e.versionCheck = PluginResolver.compare(saved: [v], installed: installedHost)
         }
         return e
     }
@@ -190,19 +194,23 @@ enum ReaperParser {
 
         var found: [FoundPlugin] = []
         var depth = 1
-        var capture: (element: String, tokens: [String], depth: Int, b64: String)?
+        var capture: (element: String, tokens: [String], depth: Int, state: Data, pending: String)?
         while let raw = lines.next() {
             let line = raw.trimmingCharacters(in: .whitespaces)
             if line.isEmpty { continue }
             if line.hasPrefix("<") {
                 depth += 1
                 let tokens = tokenize(String(line.dropFirst()))
-                if capture == nil, let el = tokens.first, fxElements.contains(el) { capture = (el, Array(tokens.dropFirst()), depth, "") }
+                if capture == nil, let el = tokens.first, fxElements.contains(el) { capture = (el, Array(tokens.dropFirst()), depth, Data(), "") }
             } else if line == ">" {
-                if let c = capture, c.depth == depth { found.append(plugin(element: c.element, tokens: c.tokens, base64: c.b64)); capture = nil }
+                if var c = capture, c.depth == depth { Self.flush(&c.state, &c.pending); found.append(plugin(element: c.element, tokens: c.tokens, state: c.state)); capture = nil }
                 depth -= 1
-            } else if capture != nil, capture!.depth == depth, capture!.b64.utf8.count < 64 * 1024 * 1024 {
-                capture!.b64 += line
+            } else if capture != nil, capture!.depth == depth, capture!.state.count < 64 * 1024 * 1024 {
+                // REAPER writes state as several base64 segments; a line ending in "=" closes a segment, so decode segment by segment.
+                var c = capture!
+                c.pending += line
+                if line.hasSuffix("=") { Self.flush(&c.state, &c.pending) }
+                capture = c
             }
         }
         var warnings: [String] = []
@@ -211,7 +219,12 @@ enum ReaperParser {
                             plugins: HostDocument.merged(found), warnings: warnings)
     }
 
-    static func plugin(element: String, tokens: [String], base64: String) -> FoundPlugin {
+    private static func flush(_ state: inout Data, _ pending: inout String) {
+        if !pending.isEmpty, let d = Data(base64Encoded: pending, options: .ignoreUnknownCharacters) { state.append(d) }
+        pending = ""
+    }
+
+    static func plugin(element: String, tokens: [String], state: Data) -> FoundPlugin {
         let display = tokens.first ?? element
         let file = tokens.count > 1 ? tokens[1] : nil
         // "VST3: Pro-Q 4 (FabFilter)" -> prefix, name, vendor
@@ -220,8 +233,7 @@ enum ReaperParser {
         if name.hasSuffix(")"), let open = name.range(of: " (", options: .backwards) {
             vendor = String(name[open.upperBound...].dropLast()); name = String(name[..<open.lowerBound])
         }
-        let state = Data(base64Encoded: base64, options: .ignoreUnknownCharacters)
-        var p = FoundPlugin(format: .vst, name: name, vendor: vendor, fileName: file, states: state.map { [$0] } ?? [])
+        var p = FoundPlugin(format: .vst, name: name, vendor: vendor, fileName: file, states: state.isEmpty ? [] : [state])
         let tag = (prefix ?? element).uppercased()
         switch true {
         case tag.hasPrefix("VST3") || (file?.lowercased().hasSuffix(".vst3") ?? false): p.format = .vst3
@@ -258,7 +270,16 @@ enum ReaperParser {
 /// For Audio Units `filename` is a JUCE identifier such as `AudioUnit:Effects/aufx,Ruum,oDin` (type, subtype, manufacturer).
 enum WaveformParser {
     /// Plumbing every track has; not user-chosen plugins.
-    private static let plumbing: Set<String> = ["volume", "level", "aux", "insert", "rackinstance", "meter"]
+    private static let plumbing: Set<String> = ["volume", "level", "aux", "insert", "rackinstance", "rack", "meter"]
+    private static let builtInNames: [String: String] = ["8bandEq": "8-Band EQ", "comp": "Compressor", "naturalReverb": "Natural Reverb", "eq": "4-Band EQ", "reverb": "Reverb",
+        "lowpass": "Low-pass Filter", "phaser": "Phaser", "chorus": "Chorus", "delay": "Delay", "pitchShift": "Pitch Shift", "limiter": "Limiter", "gate": "Noise Gate",
+        "tone": "Tone Generator", "fourOsc": "4OSC", "sampler": "Sampler", "impulseResponse": "Impulse Response", "midiModifier": "MIDI Modifier"]
+    static func builtInName(forType t: String) -> String {
+        if let n = builtInNames[t] { return n }
+        var out = "", prev: Character = " "
+        for c in t { if c.isUppercase, prev.isLowercase { out.append(" ") }; out.append(c); prev = c }
+        return out.prefix(1).uppercased() + out.dropFirst()
+    }
 
     static func parse(_ data: Data) throws -> HostDocument {
         guard data.count >= 16 else { throw ProjectError.corrupt("the edit is only \(data.count) bytes long") }
@@ -287,7 +308,7 @@ enum WaveformParser {
             guard name == "PLUGIN", let type = a["type"] else { return }
             let t = type.lowercased()
             if plumbing.contains(t) { return }
-            let n = a["name"] ?? type
+            let n = a["name"] ?? WaveformParser.builtInName(forType: type)
             switch t {
             case "vst", "vst3", "au", "audiounit":
                 var p = FoundPlugin(format: t == "vst3" ? .vst3 : (t == "vst" ? .vst : .au), name: n, vendor: a["manufacturer"])

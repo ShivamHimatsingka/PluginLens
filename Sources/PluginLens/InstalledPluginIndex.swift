@@ -140,6 +140,15 @@ struct InstalledPluginIndex: Sendable {
         return nil
     }
 
+    /// Version of an installed app whose name starts with `namePrefix` ("Bitwig Studio" -> Bitwig Studio.app).
+    func appVersion(namePrefix: String) -> String? {
+        let apps = (try? FileManager.default.contentsOfDirectory(at: URL(fileURLWithPath: "/Applications"), includingPropertiesForKeys: nil)) ?? []
+        for url in apps where url.pathExtension == "app" && url.lastPathComponent.lowercased().hasPrefix(namePrefix.lowercased()) {
+            if let v = Bundle(url: url)?.infoDictionary?["CFBundleShortVersionString"] as? String, let d = HostDocument.dotted(in: v) { return d }
+        }
+        return nil
+    }
+
     func installedVersion(of host: Host) -> String? {
         switch host { case .logic: return logicVersion; case .ableton: return abletonVersion; default: return hostVersions[host] }
     }

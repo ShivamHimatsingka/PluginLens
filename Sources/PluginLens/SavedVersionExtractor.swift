@@ -129,7 +129,7 @@ enum SavedVersionExtractor {
 
     static func find(in blob: Data) -> SavedVersion? {
         let hay = blob.count > maxScan ? blob.prefix(maxScan) : blob
-        if let m = hay.range(of: iPlugMarker, in: hay.startIndex..<min(hay.endIndex, hay.startIndex + 64)) {
+        if let m = hay.range(of: iPlugMarker, in: hay.startIndex..<min(hay.endIndex, hay.startIndex + 1024)) {
             let lenStart = m.upperBound
             if hay.distance(from: lenStart, to: hay.endIndex) >= 4 {
                 let len = (0..<4).reduce(0) { $0 | Int(hay[hay.index(lenStart, offsetBy: $1)]) << (8 * $1) }
