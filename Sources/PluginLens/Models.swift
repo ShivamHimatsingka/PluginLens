@@ -26,10 +26,39 @@ enum ProjectError: Error, LocalizedError, Hashable, Sendable {
     }
 }
 
+// MARK: - Hosts
+
+/// A DAW whose projects can be read.
+enum Host: String, CaseIterable, Sendable {
+    case logic, ableton, reaper, waveform, ardour, garageBand, mainStage
+    var displayName: String {
+        switch self {
+        case .logic: return "Logic Pro"; case .ableton: return "Ableton Live"; case .reaper: return "REAPER"
+        case .waveform: return "Waveform"; case .ardour: return "Ardour"; case .garageBand: return "GarageBand"; case .mainStage: return "MainStage"
+        }
+    }
+    var bundleIdentifiers: [String] {
+        switch self {
+        case .reaper: return ["com.cockos.reaper"]
+        case .waveform: return ["com.tracktion.waveform", "com.tracktion.Waveform"]
+        case .ardour: return ["org.ardour.Ardour"]
+        case .garageBand: return ["com.apple.garageband10"]
+        case .mainStage: return ["com.apple.mainstage3"]
+        default: return []
+        }
+    }
+    var appNamePrefixes: [String] {
+        switch self {
+        case .reaper: return ["REAPER"]; case .waveform: return ["Waveform"]; case .ardour: return ["Ardour"]
+        case .garageBand: return ["GarageBand"]; case .mainStage: return ["MainStage"]; default: return []
+        }
+    }
+}
+
 // MARK: - Discovered projects
 
 struct DiscoveredProject: Identifiable, Hashable, Sendable {
-    enum Kind: Sendable { case logicx, legacy, abletonSet }
+    enum Kind: Sendable { case logicx, legacy, abletonSet, reaper, waveform, ardour }
     var url: URL
     var kind: Kind
     var id: String { url.path }
@@ -74,6 +103,12 @@ enum PluginFormat: String, Hashable, Sendable {
     case builtIn = "Logic built-in"
     case abletonBuiltIn = "Ableton built-in"
     case maxForLive = "Max for Live"
+    case clap = "CLAP"
+    case lv2 = "LV2"
+    case jsfx = "JSFX"
+    case reaperBuiltIn = "REAPER built-in"
+    case waveformBuiltIn = "Waveform built-in"
+    case ardourBuiltIn = "Ardour built-in"
 }
 
 enum PluginStatus: String, Hashable, Sendable {

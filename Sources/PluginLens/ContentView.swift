@@ -15,7 +15,7 @@ struct ContentView: View {
                 ContentUnavailableView {
                     Label("No Project Selected", systemImage: "waveform")
                 } description: {
-                    Text("Use Open Project… to choose a Logic .logicx package, an Ableton .als set, or a folder of projects.")
+                    Text("Use Open Project… to choose a project from Logic, Ableton Live, REAPER, Waveform or Ardour, or a folder of projects.")
                 }
             }
         }
@@ -31,7 +31,7 @@ struct ContentView: View {
                 Button { model.chooseProject() } label: {
                     Label("Open Project…", systemImage: "folder")
                 }
-                .help("Open a Logic project, an Ableton Live set, or a folder containing them")
+                .help("Open a project from a supported DAW, or a folder containing them")
             }
         }
     }

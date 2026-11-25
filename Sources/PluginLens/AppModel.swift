@@ -28,7 +28,7 @@ final class AppModel {
     func chooseProject() {
         let panel = NSOpenPanel()
         panel.title = "Open Project"
-        panel.message = "Choose a Logic Pro (.logicx) project, an Ableton Live set (.als), or a folder containing them."
+        panel.message = "Choose a project (Logic .logicx, Ableton .als, REAPER .rpp, Waveform .tracktionedit, Ardour .ardour) or a folder containing them."
         panel.prompt = "Open"
         panel.canChooseFiles = true
         panel.canChooseDirectories = true

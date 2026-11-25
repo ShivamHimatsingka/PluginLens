@@ -116,3 +116,24 @@ integer does not occur at any fixed offset across 900+ records.
   unmatched plugin is shown as Not installed or Uncertain.
 - Installed versions for VST3/VST2 come from Live's own plugin database (`~/Library/Application Support/Ableton/Live Database/Live-plugins-N.db`, table `plugins`:
   `dev_identifier`, `name`, `vendor`, `version`), read read-only. Without Live installed, VST/VST3 bundles are matched by file name and reported as uncertain.
+
+
+## Other hosts (v0.2.0): REAPER, Waveform, Ardour, GarageBand and MainStage
+
+None of these could be validated against real files on the development machine. They are implemented from the file formats as documented or widely known, and the
+parsers are defensive: anything unrecognised becomes an error or an "uncertain" row, never a confident wrong answer.
+
+- **REAPER `.rpp`**: plain text. `<REAPER_PROJECT 0.1 "7.27/macOS-arm64" ...>` header gives the saving version. Effects are blocks
+  `<VST|VSTi|AU|AUi|JS|CLAP|DX|LV2 "Format: Name (Vendor)" "file or Vendor: Name" ...` followed by base64 state lines and a closing `>`.
+  AU entries carry the AU's declared "Vendor: Name" (matched exactly against installed components); VST/VST3/CLAP carry the bundle file name (matched to installed bundles).
+  Vendor "Cockos" and JSFX are REAPER's own. State is base64-decoded and run through the same saved-version discovery as the other hosts.
+- **Waveform `.tracktionedit`**: XML. `<EDIT appVersion="Waveform 12.0.5">`; `<PLUGIN type=vst|vst3|au|... name filename manufacturer uid>`. For AU, `filename` is a JUCE
+  identifier `AudioUnit:Category/type,subtype,manufacturer`, which gives exact AU codes. Volume/level/aux plumbing is skipped; other types are listed as built-ins.
+  Plugin state is JUCE's custom base64 and is not decoded.
+- **Ardour `.ardour`**: XML. `<Processor type=lv2|vst3|audiounit|... name unique-id>` inside routes; other processor types (amp, trim, meter, ...) are Ardour's own and ignored.
+  AU `unique-id` as `type-subtype-manufacturer` decimal numbers is used when present; otherwise AU and VST3 are matched by name and marked uncertain.
+- **GarageBand `.band` / MainStage `.concert`**: packages are assumed to hold a Logic-style `ProjectData` (found at any depth up to 3, any capitalisation) and are read with the Logic parser,
+  with an explicit "experimental" warning. Untested.
+
+Matching and versions for all of these go through `HostResolver`: AU by codes (or exact "Vendor: Name"), VST/VST3/CLAP by bundle file name, saved versions by the
+same four-step discovery as for Logic, built-ins versioned with the host app (installed host version found by bundle identifier or app name).

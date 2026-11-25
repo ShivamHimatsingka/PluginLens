@@ -33,6 +33,11 @@ enum ProjectScanner {
         if ext == "logicx", isDir { return DiscoveredProject(url: url, kind: .logicx) }
         if ext == "logic" { return DiscoveredProject(url: url, kind: .legacy) }
         if ext == "als", !isDir { return DiscoveredProject(url: url, kind: .abletonSet) }
+        if ext == "rpp", !isDir { return DiscoveredProject(url: url, kind: .reaper) }
+        if ext == "tracktionedit", !isDir { return DiscoveredProject(url: url, kind: .waveform) }
+        if ext == "ardour", !isDir { return DiscoveredProject(url: url, kind: .ardour) }
+        // GarageBand and MainStage are built on Logic's engine; their packages are read with the Logic parser (experimental).
+        if (ext == "band" || ext == "concert"), isDir { return DiscoveredProject(url: url, kind: .logicx) }
         if isDir, FileManager.default.fileExists(atPath: url.appendingPathComponent("Alternatives").path),
            !locateProjectData(in: url).isEmpty {
             return DiscoveredProject(url: url, kind: .logicx)
@@ -44,9 +49,19 @@ enum ProjectScanner {
     static func locateProjectData(in package: URL) -> [URL] {
         let fm = FileManager.default
         let alts = package.appendingPathComponent("Alternatives")
-        guard let dirs = try? fm.contentsOfDirectory(at: alts, includingPropertiesForKeys: nil) else { return [] }
-        let candidates = dirs.map { $0.appendingPathComponent("ProjectData") }
+        let dirs = (try? fm.contentsOfDirectory(at: alts, includingPropertiesForKeys: nil)) ?? []
+        var candidates = dirs.map { $0.appendingPathComponent("ProjectData") }
             .filter { fm.fileExists(atPath: $0.path) }
+        if candidates.isEmpty {
+            // GarageBand and MainStage packages: look for a file called projectdata (any case) up to three levels down.
+            if let en = fm.enumerator(at: package, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey], options: [.skipsHiddenFiles]) {
+                for case let u as URL in en {
+                    if en.level > 3 { en.skipDescendants(); continue }
+                    if u.lastPathComponent.lowercased() == "projectdata",
+                       (try? u.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true { candidates.append(u) }
+                }
+            }
+        }
         func mtime(_ u: URL) -> Date { (try? u.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate ?? .distantPast }
         return candidates.sorted { mtime($0) > mtime($1) }
     }
@@ -60,6 +75,7 @@ enum ProjectLoader {
     static func load(_ project: DiscoveredProject, index: InstalledPluginIndex) -> LoadState {
         if project.kind == .legacy { return .failed(.legacyFormat) }
         if project.kind == .abletonSet { return loadAbleton(project, index: index) }
+        if let parse = hostParser(for: project.kind) { return loadHostFile(project, index: index, parse: parse) }
         let fm = FileManager.default
         guard fm.fileExists(atPath: project.url.path) else { return .failed(.unreadable("the file no longer exists")) }
 
@@ -67,6 +83,10 @@ enum ProjectLoader {
         guard let dataURL = dataFiles.first else { return .failed(.noProjectData) }
 
         var warnings: [String] = []
+        let ext = project.url.pathExtension.lowercased()
+        if ext == "band" || ext == "concert" {
+            warnings.append("\(ext == "band" ? "GarageBand" : "MainStage") projects are read with the Logic Pro parser. This is experimental and has not been checked against real \(ext == "band" ? "GarageBand" : "MainStage") files.")
+        }
         let info = readInfo(project.url)
         if let major = info.major, major > testedMajorVersion {
             warnings.append("Saved by a newer Logic Pro (\(info.savedFrom ?? "?")) than this app was tested with (\(testedMajorVersion).x). Results may be incomplete.")
@@ -93,6 +113,30 @@ enum ProjectLoader {
                                      warnings: warnings + parsed.warnings))
     }
 
+    private static func hostParser(for kind: DiscoveredProject.Kind) -> ((Data) throws -> HostDocument)? {
+        switch kind {
+        case .reaper: return ReaperParser.parse
+        case .waveform: return WaveformParser.parse
+        case .ardour: return ArdourParser.parse
+        default: return nil
+        }
+    }
+
+    /// Shared path for DAWs whose files are parsed to a `HostDocument` (REAPER, Waveform, Ardour).
+    private static func loadHostFile(_ project: DiscoveredProject, index: InstalledPluginIndex, parse: (Data) throws -> HostDocument) -> LoadState {
+        let data: Data
+        do { data = try Data(contentsOf: project.url, options: .mappedIfSafe) }
+        catch { return .failed(.unreadable(error.localizedDescription)) }
+        let doc: HostDocument
+        do { doc = try parse(data) }
+        catch let e as ProjectError { return .failed(e) }
+        catch { return .failed(.corrupt(error.localizedDescription)) }
+        let modified = (try? project.url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        let plugins = doc.plugins.map { HostResolver.resolve($0, host: doc.host, savedHostVersion: doc.savedVersion, index: index) }
+        return .loaded(ProjectReport(project: project, projectDataURL: project.url, lastModified: modified,
+                                     lastSavedFrom: doc.savedWith, plugins: plugins, warnings: doc.warnings))
+    }
+
     private static func loadAbleton(_ project: DiscoveredProject, index: InstalledPluginIndex) -> LoadState {
         let data: Data
         do { data = try Data(contentsOf: project.url, options: .mappedIfSafe) }
@@ -112,7 +156,7 @@ enum ProjectLoader {
     }
 
     static func lastModified(of project: DiscoveredProject) -> Date? {
-        if project.kind == .abletonSet { return (try? project.url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate }
+        if project.kind != .logicx { return (try? project.url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate }
         let url = ProjectScanner.locateProjectData(in: project.url).first ?? project.url
         return (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
     }

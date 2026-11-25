@@ -1,8 +1,8 @@
 # Plugin Lens
 
-**See every plugin a Logic Pro project or Ableton Live set uses, which version it was saved with, and what you have installed now.**
+**See every plugin a DAW project uses, which version it was saved with, and what you have installed now.** Logic Pro, Ableton Live, REAPER, Waveform and Ardour.
 
-Plugin Lens is a small native macOS app (Swift + SwiftUI, no dependencies). Point it at a Logic Pro `.logicx` project, an Ableton Live `.als` set, or a folder full of them, and it lists
+Plugin Lens is a small native macOS app (Swift + SwiftUI, no dependencies). Point it at a project, or a folder full of them, and it lists
 each plugin with its manufacturer, format, the version the project was saved with (when the plugin records one), the version installed on
 this Mac, and whether they match. It is read-only: it never modifies a project and makes no network requests.
 
@@ -28,13 +28,20 @@ Your DAW only tells you after it fails to load something. Plugin Lens answers up
 
 | DAW | Files | Status |
 |---|---|---|
-| Logic Pro | `.logicx` | Validated on about 60 real projects saved by Logic Pro Creator Studio 12.2. |
-| Ableton Live 10-12 | `.als` | Validated on the 26 sets bundled with Live 12.4.6 (built-in devices, gzip/XML handling). **Not yet validated on a set that contains third-party plugins**; see the notes below. |
+| Logic Pro | `.logicx` | **Validated** on about 60 real projects saved by Logic Pro Creator Studio 12.2. |
+| Ableton Live 10-12 | `.als` | Validated on the 26 sets bundled with Live 12.4.6 (built-in devices, gzip/XML). Third-party plugin entries not yet validated on a real set. |
+| REAPER | `.rpp` | Built from the documented text format and tested on synthetic projects; **not yet validated on a real project**. |
+| Waveform (Tracktion) | `.tracktionedit` | As REAPER: format-based, synthetic tests only. |
+| Ardour | `.ardour` | As REAPER: format-based, synthetic tests only. LV2 plugins are listed but not checked. |
+| GarageBand, MainStage | `.band`, `.concert` | **Experimental.** Read with the Logic parser on the assumption that they share its project format; no real file has been tested. |
 
+"Validated" means checked against real files from that DAW. The others are implemented from the published or well-known file formats, are covered by
+unit tests built from that knowledge, and show a clear error rather than a wrong answer when a file doesn't match. If a project from one of them is read wrongly,
+please open an issue (the first lines of the file and the DAW version are enough). Not supported: Pro Tools, Cubase/Nuendo, FL Studio, Studio One, Bitwig, Reason.
 
 ## Install
 
-1. Download `PluginLens-0.1.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
+1. Download `PluginLens-0.2.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
 2. The app is ad-hoc signed and **not notarized**, so macOS will block the first launch. Right-click the app, choose **Open**, then **Open** again; or run:
 
    ```bash
@@ -111,7 +118,7 @@ Logic version and, if you can share it, the output of `xxd` on the first 128 byt
 
 ## Tests
 
-74 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), saved-version discovery, version lookup against fake plugin
+88 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
 bundles in a temp folder (so results don't depend on your machine), discovery, per-project failure isolation, and exports.
 Fixtures in `Tests/Fixtures` are built by `Tools/make_fixtures.py`: only about 40 bytes per plugin record are kept; track names, text, plugin state and everything else
 are dropped (ProjectData never contains audio). `mixed_missing` has one manufacturer code rewritten so it is guaranteed not to be installed.
@@ -121,7 +128,7 @@ It prints a summary and fails if any project fails unexpectedly.
 
 ## Contributing
 
-Issues and pull requests are welcome. Another DAW is a good first contribution (`AbletonSet.swift` and `AbletonResolver.swift` show the shape: parse, then resolve to rows). Or add a saved-version convention for a plugin you use:
+Issues and pull requests are welcome. Another DAW is a good first contribution: write a parser that returns a `HostDocument` of `FoundPlugin`s (see `HostFormats.swift`; REAPER's is about 80 lines), and `HostResolver` does the matching, versions and checks. Or add a saved-version convention for a plugin you use:
 add a pattern to `SavedVersionExtractor`, a test, and a line in the table above. Please only describe plugin state you have inspected yourself.
 
 ## Disclaimer

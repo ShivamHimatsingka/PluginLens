@@ -9,6 +9,7 @@ struct SearchDirectories: Sendable {
     var applications: [URL] = []
     /// Folder holding Ableton Live's `Live-plugins-N.db`, if any.
     var liveDatabase: URL? = nil
+    var clap: [URL] = []
 
     static var standard: SearchDirectories {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -21,7 +22,8 @@ struct SearchDirectories: Sendable {
             vst: dirs("VST"),
             vst3: dirs("VST3"),
             applications: [URL(fileURLWithPath: "/Applications"), home.appendingPathComponent("Applications")],
-            liveDatabase: LiveDatabase.standardDirectory)
+            liveDatabase: LiveDatabase.standardDirectory,
+            clap: dirs("CLAP"))
     }
 }
 
@@ -49,12 +51,15 @@ struct InstalledPluginIndex: Sendable {
     private var vstNames: [String: [PluginFormat: String]] = [:]
     var logicVersion: String?
     var abletonVersion: String?
+    /// Installed version of other host apps (REAPER, Waveform, Ardour, GarageBand, MainStage), by `Host`.
+    private(set) var hostVersions: [Host: String] = [:]
     private(set) var liveDatabase = LiveDatabase()
 
     init(directories: SearchDirectories = .standard, logicVersion: String? = InstalledPluginIndex.detectLogicVersion(),
          abletonVersion: String? = InstalledPluginIndex.detectAbletonVersion()) {
         self.logicVersion = logicVersion
         self.abletonVersion = abletonVersion
+        for h in Host.allCases where h != .logic && h != .ableton { if let v = Self.detectAppVersion(h) { hostVersions[h] = v } }
         self.liveDatabase = LiveDatabase(directory: directories.liveDatabase)
         for dir in directories.audioUnits {
             for bundle in Self.bundles(in: dir, ext: "component") {
@@ -65,7 +70,7 @@ struct InstalledPluginIndex: Sendable {
             for appex in Self.appExtensions(in: dir) { components.append(contentsOf: Self.components(in: appex)) }
         }
         for c in components { byKey[c.key, default: []].append(c) }
-        for (dirs, format, ext) in [(directories.vst, PluginFormat.vst, "vst"), (directories.vst3, .vst3, "vst3")] {
+        for (dirs, format, ext) in [(directories.vst, PluginFormat.vst, "vst"), (directories.vst3, .vst3, "vst3"), (directories.clap, .clap, "clap")] {
             for dir in dirs {
                 for bundle in Self.bundles(in: dir, ext: ext) {
                     let name = bundle.deletingPathExtension().lastPathComponent
@@ -93,9 +98,18 @@ struct InstalledPluginIndex: Sendable {
         return (name, v == "?" ? "" : v)
     }
 
+    /// The only bundle of this format whose file name contains `name` ("Pro-Q 4" in "FabFilter Pro-Q 4"); nil if none or several.
+    func bundle(format: PluginFormat, nameContaining name: String) -> (name: String, version: String)? {
+        let want = Self.normalize(name)
+        guard want.count >= 4 else { return nil }
+        let hits = vstNames.filter { $0.key.contains(want) && $0.value[format] != nil }
+        guard hits.count == 1, let h = hits.first, let v = h.value[format] else { return nil }
+        return (h.key, v == "?" ? "" : v)
+    }
+
     func otherFormats(forPluginNamed name: String) -> [(format: PluginFormat, version: String)] {
         let found = vstNames[Self.normalize(name)] ?? [:]
-        return [PluginFormat.vst, .vst3].compactMap { f in found[f].map { (f, $0) } }
+        return [PluginFormat.vst, .vst3, .clap].compactMap { f in found[f].map { (f, $0) } }
     }
 
     static func bundleVersion(_ bundle: URL) -> String? {
@@ -109,6 +123,23 @@ struct InstalledPluginIndex: Sendable {
 
     static func normalize(_ s: String) -> String {
         s.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+
+    /// Installed version of a host app: by bundle identifier, then by app name prefix in /Applications.
+    static func detectAppVersion(_ host: Host) -> String? {
+        var urls = host.bundleIdentifiers.compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
+        if urls.isEmpty, let apps = try? FileManager.default.contentsOfDirectory(at: URL(fileURLWithPath: "/Applications"), includingPropertiesForKeys: nil) {
+            urls = apps.filter { app in app.pathExtension == "app" && host.appNamePrefixes.contains { app.lastPathComponent.hasPrefix($0) } }
+        }
+        for url in urls {
+            if let v = Bundle(url: url)?.infoDictionary?["CFBundleShortVersionString"] as? String,
+               let r = v.range(of: #"\d+(\.\d+)+"#, options: .regularExpression) { return String(v[r]) }
+        }
+        return nil
+    }
+
+    func installedVersion(of host: Host) -> String? {
+        switch host { case .logic: return logicVersion; case .ableton: return abletonVersion; default: return hostVersions[host] }
     }
 
     static func detectAbletonVersion() -> String? {
