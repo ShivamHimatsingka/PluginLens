@@ -123,6 +123,24 @@ final class VersionLookupTests: XCTestCase {
         XCTAssertEqual(e.format, .au)
         XCTAssertEqual(e.otherFormats, [.vst3])
         XCTAssertEqual(e.formatText, "AU (+VST3 installed)")
+        XCTAssertTrue(try XCTUnwrap(e.note).contains("VST3 1.0"), "VST bundle version should be reported")
+    }
+
+    func testVSTOnlyBuildDoesNotCountAsInstalled() throws {
+        let fake = try FakeInstall()
+        try fake.addPlain("Gone Verb", ext: "vst3", in: fake.vst3)
+        try fake.addPlain("Gone Verb", ext: "vst", in: fake.vst)
+        let e = PluginResolver.resolve(record("Gone Verb", "Zzzz", "aufx", "Gone"), index: fake.index())
+        XCTAssertEqual(e.status, .notInstalled, "Logic cannot load VST")
+        XCTAssertTrue(try XCTUnwrap(e.note).contains("VST build"))
+    }
+
+    func testVendorSubfolderVST3IsFound() throws {
+        let fake = try FakeInstall()
+        let vendor = fake.vst3.appendingPathComponent("Acme"); try FileManager.default.createDirectory(at: vendor, withIntermediateDirectories: true)
+        try fake.addComponent("Acme Verb", short: "1.0", type: "aufx", subtype: "Verb", manufacturer: "Acme", name: "Acme: Verb")
+        try fake.addPlain("Acme Verb", ext: "vst3", in: vendor)
+        XCTAssertEqual(PluginResolver.resolve(record("Verb", "Acme", "aufx", "Verb"), index: fake.index()).otherFormats, [.vst3])
     }
 
     func testIntegerComponentCodesAreDecoded() {

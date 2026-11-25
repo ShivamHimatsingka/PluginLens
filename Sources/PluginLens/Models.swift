@@ -13,7 +13,7 @@ enum ProjectError: Error, LocalizedError, Hashable, Sendable {
     var errorDescription: String? {
         switch self {
         case .noProjectData:
-            return "No ProjectData file was found in this package (looked in Alternatives/*/ProjectData)."
+            return "No ProjectData file was found in this package (looked in Alternatives/*/ProjectData). The project may never have been saved: Logic leaves an empty package with only undo data for untitled sessions."
         case .unreadable(let why):
             return "The project could not be read: \(why)"
         case .unsupportedFormat(let why):

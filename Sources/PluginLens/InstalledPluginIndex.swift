@@ -38,7 +38,7 @@ struct InstalledComponent: Hashable, Sendable {
 struct InstalledPluginIndex: Sendable {
     private(set) var components: [InstalledComponent] = []
     private var byKey: [String: [InstalledComponent]] = [:]
-    private var vstNames: [String: Set<PluginFormat>] = [:]
+    private var vstNames: [String: [PluginFormat: String]] = [:]
     var logicVersion: String?
 
     init(directories: SearchDirectories = .standard, logicVersion: String? = InstalledPluginIndex.detectLogicVersion()) {
@@ -53,7 +53,7 @@ struct InstalledPluginIndex: Sendable {
             for dir in dirs {
                 for bundle in Self.bundles(in: dir, ext: ext) {
                     let name = bundle.deletingPathExtension().lastPathComponent
-                    vstNames[Self.normalize(name), default: []].insert(format)
+                    vstNames[Self.normalize(name), default: [:]][format] = Self.bundleVersion(bundle) ?? "?"
                 }
             }
         }
@@ -70,9 +70,17 @@ struct InstalledPluginIndex: Sendable {
         return components.filter { $0.manufacturer == manufacturer && $0.pluginName.lowercased().hasPrefix(p) }
     }
 
-    func otherFormats(forPluginNamed name: String) -> [PluginFormat] {
-        let set = vstNames[Self.normalize(name)] ?? []
-        return [.vst, .vst3].filter(set.contains)
+    /// VST/VST3 builds with the same bundle name, with the version read from each bundle's Info.plist ("?" if absent).
+    func otherFormats(forPluginNamed name: String) -> [(format: PluginFormat, version: String)] {
+        let found = vstNames[Self.normalize(name)] ?? [:]
+        return [PluginFormat.vst, .vst3].compactMap { f in found[f].map { (f, $0) } }
+    }
+
+    static func bundleVersion(_ bundle: URL) -> String? {
+        guard let data = try? Data(contentsOf: bundle.appendingPathComponent("Contents/Info.plist")),
+              let plist = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any] else { return nil }
+        return [plist["CFBundleShortVersionString"], plist["CFBundleVersion"]]
+            .compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }
     }
 
     // MARK: Helpers

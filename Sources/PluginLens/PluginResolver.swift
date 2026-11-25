@@ -49,10 +49,13 @@ enum PluginResolver {
             return entry(r, matches: byName, uncertain: true, index: index,
                          extraNote: "No component with codes \(r.codes) is installed; matched by manufacturer code and name only.")
         }
+        // Logic can't load VST/VST3, so a same-named VST build doesn't make the project's AU available.
+        let others = index.otherFormats(forPluginNamed: r.name)
+        var note = "No installed Audio Unit has codes \(r.codes). Name is truncated by Logic; manufacturer shown as its four-character code."
+        if !others.isEmpty { note += " A VST build with a matching name exists but Logic cannot load it." }
         return PluginEntry(id: r.key, name: r.name, manufacturer: r.manufacturer, format: .au,
                            installedVersion: nil, status: .notInstalled, isUncertain: false,
-                           note: "No installed Audio Unit has codes \(r.codes). Name is truncated by Logic; manufacturer shown as its four-character code.",
-                           otherFormats: [], codes: r.codes, bundlePath: nil)
+                           note: note, otherFormats: [], codes: r.codes, bundlePath: nil)
     }
 
     private static func entry(_ r: RawPluginRecord, matches: [InstalledComponent], uncertain: Bool,
@@ -63,6 +66,8 @@ enum PluginResolver {
         var isUncertain = uncertain
         var version: String? = versions.first
         var notes: [String] = []
+        let others = index.otherFormats(forPluginNamed: first.bundleURL.deletingPathExtension().lastPathComponent)
+        if !others.isEmpty { notes.append("Also installed: " + others.map { "\($0.format.rawValue) \($0.version)" }.joined(separator: ", ") + ".") }
         if let extraNote { notes.append(extraNote) }
         if bundles.count > 1 && versions.count > 1 {
             isUncertain = true
@@ -77,7 +82,7 @@ enum PluginResolver {
         return PluginEntry(id: r.key, name: first.pluginName, manufacturer: first.manufacturerName.isEmpty ? r.manufacturer : first.manufacturerName,
                            format: .au, installedVersion: version, status: status, isUncertain: isUncertain,
                            note: notes.isEmpty ? nil : notes.joined(separator: " "),
-                           otherFormats: index.otherFormats(forPluginNamed: first.bundleURL.deletingPathExtension().lastPathComponent),
+                           otherFormats: others.map(\.format),
                            codes: r.codes, bundlePath: first.bundleURL.path)
     }
 }

@@ -61,7 +61,7 @@ If several installed bundles share the same codes but have different versions, t
 ## Known limitations
 
 - **Logic only hosts Audio Units**, so every third-party plugin in a project is AU. VST and VST3 can never appear as a project's format. The
-  Format column shows `AU (+VST3 installed)` when a VST/VST3 bundle with the same name is also installed. That is informational only.
+  Format column shows `AU (+VST3 installed)` when a VST/VST3 bundle with the same name is also installed, and the row's tooltip lists its version (read from the bundle's Info.plist, including vendor sub-folders). That is informational only: a VST-only install does not count as installed, since Logic can't load it.
 - **The project does not store plugin versions**, so the app shows the *installed* version, not the version the project was saved with, and cannot detect a mismatch.
 - **Logic built-in plugins** have no AU codes in the project. They are listed with Logic's own version, and display names come from a small
   table (`BuiltInNames`); unknown ones show Logic's internal 11-character name.
@@ -70,6 +70,11 @@ If several installed bundles share the same codes but have different versions, t
 - AUv3 app-extension plugins are not found by bundle scanning, so they show as Not installed.
 
 ## Tests
+
+Run `xcodebuild ... test` (40 tests). One extra check is opt-in and reads real projects: set `PLUGINLENS_PROJECTS` to a folder, or write its path to
+`/tmp/pluginlens_projects_path`, and it loads every project and prints a `REALCHECK` summary (counts, failures, missing and unknown plugins).
+On the author's library: 59 packages found, 55 loaded, 683 plugin records, 0 failures; the other 4 are never-saved "Untitled" stubs that contain only undo data
+and are reported as such.
 
 `Tests/PluginLensTests` covers the parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), version lookup
 (against fake plugin bundles in a temp folder, so results don't depend on this machine), discovery, per-project failure isolation, and exports.
