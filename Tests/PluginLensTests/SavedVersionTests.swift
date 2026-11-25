@@ -3,10 +3,10 @@ import XCTest
 
 final class SavedVersionTests: XCTestCase {
     /// An embedded AU state plist as Logic writes it: codes as integers plus the plugin's own state blobs.
-    private func statePlist(type: String, subtype: String, manufacturer: String, blobs: [String: Data]) throws -> Data {
+    private func statePlist(type: String, subtype: String, manufacturer: String, blobs: [String: Data], version: Int = 0) throws -> Data {
         func int(_ s: String) -> Int { s.utf8.reduce(0) { $0 << 8 | Int($1) } }
         var d: [String: Any] = ["type": int(type), "subtype": int(subtype), "manufacturer": int(manufacturer),
-                                "name": "Untitled", "version": 0, "element-name": "dict"]
+                                "name": "Untitled", "version": version, "element-name": "dict"]
         for (k, v) in blobs { d[k] = v }
         return try PropertyListSerialization.data(fromPropertyList: d, format: .xml, options: 0)
     }
@@ -147,5 +147,67 @@ final class SavedVersionTests: XCTestCase {
         let p = try XCTUnwrap(report.plugins.first)
         XCTAssertEqual(p.savedVersion, "2.0.5"); XCTAssertEqual(p.installedVersion, "2.1.0"); XCTAssertEqual(p.versionCheck, .installedNewer)
         XCTAssertTrue(Exporters.csv(report).contains("ValhallaRoom,Valhalla DSP, LLC") || Exporters.csv(report).contains("2.0.5"))
+    }
+
+    // MARK: Discovery tiers
+
+    func testAUStateVersionFieldIsComparedExactlyWithInstalledComponentVersion() throws {
+        let fake = try FakeInstall()
+        // component version 0x0001_0001 = 1.0.1, as declared by the installed bundle
+        let bundle = fake.au.appendingPathComponent("Gate.component/Contents"); try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+        let plist: [String: Any] = ["CFBundleShortVersionString": "1.0.1", "AudioComponents": [["type": "aufx", "subtype": "Gate", "manufacturer": "Acme", "name": "Acme: Gate", "version": 65537]]]
+        try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0).write(to: bundle.appendingPathComponent("Info.plist"))
+        let state = try statePlist(type: "aufx", subtype: "Gate", manufacturer: "Acme", blobs: [:], version: 65536)   // saved by 1.0.0
+        let rec = RecordBuilder.au(name: "Gate", manufacturer: "Acme", type: "aufx", subtype: "Gate")
+        let raw = try XCTUnwrap(ProjectDataParser.parse(project(plugin: rec, plist: state)).records.first)
+        XCTAssertEqual(raw.saved.first?.confidence, .exact)
+        let e = PluginResolver.resolve(raw, index: fake.index())
+        XCTAssertEqual(e.savedVersion, "1.0.0"); XCTAssertEqual(e.versionCheck, .installedNewer)
+        let same = try statePlist(type: "aufx", subtype: "Gate", manufacturer: "Acme", blobs: [:], version: 65537)
+        let raw2 = try XCTUnwrap(ProjectDataParser.parse(project(plugin: rec, plist: same)).records.first)
+        XCTAssertEqual(PluginResolver.resolve(raw2, index: fake.index()).versionCheck, .same)
+    }
+
+    func testProductGenerationFromNameIsUsedWhenNothingElseIsStored() throws {
+        XCTAssertEqual(SavedVersionExtractor.generation(inName: "Ozone 12"), "12")
+        XCTAssertEqual(SavedVersionExtractor.generation(inName: "RX 11 De-re"), "11")
+        XCTAssertEqual(SavedVersionExtractor.generation(inName: "Pro-Q 4"), "4")
+        XCTAssertNil(SavedVersionExtractor.generation(inName: "UADx 1176 F"), "model numbers are not generations")
+        XCTAssertNil(SavedVersionExtractor.generation(inName: "UADx 610-A "))
+        XCTAssertNil(SavedVersionExtractor.generation(inName: "ValhallaRoo"))
+        let fake = try FakeInstall()
+        try fake.addComponent("Ozone 12", short: "12.0.1", type: "aufx", subtype: "ZBOZ", manufacturer: "iZtp", name: "iZotope: Ozone 12")
+        var r = RawPluginRecord(kind: .audioUnit, name: "Ozone 12", manufacturer: "iZtp", type: "aufx", subtype: "ZBOZ", count: 1, firstOffset: 0)
+        var e = PluginResolver.resolve(r, index: fake.index())
+        XCTAssertEqual(e.savedVersion, "12 (from name)"); XCTAssertEqual(e.versionCheck, .sameGeneration); XCTAssertEqual(e.savedConfidence, .generation)
+        r.name = "Ozone 11"
+        e = PluginResolver.resolve(r, index: fake.index())
+        XCTAssertEqual(e.versionCheck, .differs, "saved by Ozone 11, Ozone 12 installed under the same codes")
+    }
+
+    func testGenericFieldIsReportedButNeverJudged() throws {
+        let blob = Data(#"{"presetData":"{\"app_version\":\"1.0.0\",\"bpm\":120}"}"#.utf8)
+        let v = try XCTUnwrap(SavedVersionExtractor.findGeneric(in: blob))
+        XCTAssertEqual(v.version, "1.0.0"); XCTAssertEqual(v.confidence, .heuristic)
+        XCTAssertNil(SavedVersionExtractor.findGeneric(in: Data(#"{"stateVersion":"3.1.4","schemaVersion":"2.0.0","presetVersion":"9.9.9"}"#.utf8)),
+                     "format/schema/preset versions are not plugin versions")
+        XCTAssertEqual(SavedVersionExtractor.findGeneric(in: Data(#"<A ChunkVersion="10.0.0"/><A ChunkVersion="11.0.0"/>"#.utf8))?.version, "11.0.0")
+        let fake = try FakeInstall()
+        try fake.addComponent("Bias", short: "1.2.3", type: "aufx", subtype: "Bias", manufacturer: "Acme", name: "Acme: Bias")
+        var r = RawPluginRecord(kind: .audioUnit, name: "Bias", manufacturer: "Acme", type: "aufx", subtype: "Bias", count: 1, firstOffset: 0)
+        r.saved = [v]
+        let e = PluginResolver.resolve(r, index: fake.index())
+        XCTAssertEqual(e.versionCheck, .unverified); XCTAssertEqual(e.savedVersion, "1.0.0 (unverified)")
+        XCTAssertFalse(e.versionCheck.needsAttention, "an unverified field must not raise a warning")
+    }
+
+    func testVersionInsideZlibCompressedStateIsFound() throws {
+        let text = Data(#"{"Product":"X","pluginVersion":"4.5.6"}"#.utf8)
+        let raw = try (text as NSData).compressed(using: .zlib) as Data
+        var blob = Data(count: 16); blob.append(contentsOf: [0x78, 0x9C]); blob.append(raw); blob.append(Data(count: 4))
+        XCTAssertNotNil(SavedVersionExtractor.inflate(blob))
+        let plist = try statePlist(type: "aufx", subtype: "Zlib", manufacturer: "Acme", blobs: ["data": blob])
+        let rec = RecordBuilder.au(name: "Zlib", manufacturer: "Acme", type: "aufx", subtype: "Zlib")
+        XCTAssertEqual(try ProjectDataParser.parse(project(plugin: rec, plist: plist)).records.first?.saved.first?.version, "4.5.6")
     }
 }

@@ -10,13 +10,17 @@
 		04CA8E00227347DD94211B81 /* PluginLensApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01F8E4A120A031994B5A79A0 /* PluginLensApp.swift */; };
 		10D56AEFBB100A51B48F1D45 /* ParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C84F68C24AF012410F31DF /* ParserTests.swift */; };
 		1AAF03A770AE9B5546E97A3F /* VersionLookupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808930CFCD1FDEE40E479600 /* VersionLookupTests.swift */; };
+		2392BBAB4F3291F0CDEAEE1E /* AbletonSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65374524CA95F41E1F176CE2 /* AbletonSet.swift */; };
 		24704F103370924ED36C8BF5 /* InstalledPluginIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4952E2999F3E0ED79DB3D4 /* InstalledPluginIndex.swift */; };
 		2D4107A011C2909AD5972C1E /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = 5D57218C6CBCC4C37BDB6FB0 /* Fixtures */; };
 		4A0C2F332C460B017815C798 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D5ACCB52114D1BB7270E72F /* Models.swift */; };
 		4B73C551BC6E49F50034EE3E /* SavedVersionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEA67B57F87EAB488E9E2C9 /* SavedVersionTests.swift */; };
+		5A918BAEDA363C395DA46C5A /* LiveDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE39F6F0760E127F83C4EDF3 /* LiveDatabase.swift */; };
+		661BDA03B0CD482484D486E2 /* AbletonResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98A75D023938DE3AB3C7FC29 /* AbletonResolver.swift */; };
 		6900E753293EAFF7CF0835EF /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F8614AD263E90A731689E0B /* TestSupport.swift */; };
 		88FDA640F0E0936C95668211 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C43F797563A631D4409AFC3 /* AppModel.swift */; };
 		973B04759298A943FCB3802C /* ScannerAndExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF98152C3EEB1BB1445B7F9 /* ScannerAndExportTests.swift */; };
+		B43637857F3A6D50B31D6F52 /* AbletonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B955E332BCBE4F3663731AE7 /* AbletonTests.swift */; };
 		C8F900B73C8A2AD298CCF016 /* SavedVersionExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A60D0302BE343EC1CD8B8382 /* SavedVersionExtractor.swift */; };
 		CBB4FA1998A873D30C14C006 /* ProjectScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A86C4E4D17D1E1936101D0D /* ProjectScanner.swift */; };
 		D856F4A02C5EC84C1ED46F23 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1193FB48C05C189B2FA72D4 /* ContentView.swift */; };
@@ -50,12 +54,16 @@
 		48E0AFAD29BD2B75B798E73C /* PluginLensTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PluginLensTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		4DEA67B57F87EAB488E9E2C9 /* SavedVersionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedVersionTests.swift; sourceTree = "<group>"; };
 		5D57218C6CBCC4C37BDB6FB0 /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Tests/Fixtures; sourceTree = SOURCE_ROOT; };
+		65374524CA95F41E1F176CE2 /* AbletonSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbletonSet.swift; sourceTree = "<group>"; };
 		6A86C4E4D17D1E1936101D0D /* ProjectScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectScanner.swift; sourceTree = "<group>"; };
 		808930CFCD1FDEE40E479600 /* VersionLookupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionLookupTests.swift; sourceTree = "<group>"; };
+		98A75D023938DE3AB3C7FC29 /* AbletonResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbletonResolver.swift; sourceTree = "<group>"; };
 		9AF98152C3EEB1BB1445B7F9 /* ScannerAndExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerAndExportTests.swift; sourceTree = "<group>"; };
 		A4C84F68C24AF012410F31DF /* ParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParserTests.swift; sourceTree = "<group>"; };
 		A60D0302BE343EC1CD8B8382 /* SavedVersionExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedVersionExtractor.swift; sourceTree = "<group>"; };
+		AE39F6F0760E127F83C4EDF3 /* LiveDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDatabase.swift; sourceTree = "<group>"; };
 		B5DF6E4CBF70A6AD4D49751B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		B955E332BCBE4F3663731AE7 /* AbletonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbletonTests.swift; sourceTree = "<group>"; };
 		C04423AE04E774AF781D0077 /* PluginLens.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PluginLens.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1193FB48C05C189B2FA72D4 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		DCF1F326FBC99AD11B5680AA /* PluginResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginResolver.swift; sourceTree = "<group>"; };
@@ -83,6 +91,7 @@
 		60CC4A382EBEC02342348165 /* PluginLensTests */ = {
 			isa = PBXGroup;
 			children = (
+				B955E332BCBE4F3663731AE7 /* AbletonTests.swift */,
 				A4C84F68C24AF012410F31DF /* ParserTests.swift */,
 				318AC632301BEC962E6ADCD1 /* RealProjectsCheckTests.swift */,
 				4DEA67B57F87EAB488E9E2C9 /* SavedVersionTests.swift */,
@@ -104,11 +113,14 @@
 		6D99FFCD25E1029E6E0F98E3 /* PluginLens */ = {
 			isa = PBXGroup;
 			children = (
+				98A75D023938DE3AB3C7FC29 /* AbletonResolver.swift */,
+				65374524CA95F41E1F176CE2 /* AbletonSet.swift */,
 				3C43F797563A631D4409AFC3 /* AppModel.swift */,
 				D1193FB48C05C189B2FA72D4 /* ContentView.swift */,
 				13BD0195F6D92044F0A774D7 /* Exporters.swift */,
 				B5DF6E4CBF70A6AD4D49751B /* Info.plist */,
 				0D4952E2999F3E0ED79DB3D4 /* InstalledPluginIndex.swift */,
+				AE39F6F0760E127F83C4EDF3 /* LiveDatabase.swift */,
 				0D5ACCB52114D1BB7270E72F /* Models.swift */,
 				01F8E4A120A031994B5A79A0 /* PluginLensApp.swift */,
 				DCF1F326FBC99AD11B5680AA /* PluginResolver.swift */,
@@ -221,10 +233,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				661BDA03B0CD482484D486E2 /* AbletonResolver.swift in Sources */,
+				2392BBAB4F3291F0CDEAEE1E /* AbletonSet.swift in Sources */,
 				88FDA640F0E0936C95668211 /* AppModel.swift in Sources */,
 				D856F4A02C5EC84C1ED46F23 /* ContentView.swift in Sources */,
 				DB39E3C2DB99B602AC43FFE0 /* Exporters.swift in Sources */,
 				24704F103370924ED36C8BF5 /* InstalledPluginIndex.swift in Sources */,
+				5A918BAEDA363C395DA46C5A /* LiveDatabase.swift in Sources */,
 				4A0C2F332C460B017815C798 /* Models.swift in Sources */,
 				04CA8E00227347DD94211B81 /* PluginLensApp.swift in Sources */,
 				FA6349C0F658125847464243 /* PluginResolver.swift in Sources */,
@@ -239,6 +254,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B43637857F3A6D50B31D6F52 /* AbletonTests.swift in Sources */,
 				10D56AEFBB100A51B48F1D45 /* ParserTests.swift in Sources */,
 				F19BF2FC936926911FC39A9F /* RealProjectsCheckTests.swift in Sources */,
 				4B73C551BC6E49F50034EE3E /* SavedVersionTests.swift in Sources */,

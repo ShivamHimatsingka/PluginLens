@@ -1,4 +1,4 @@
-# Phase 1 findings: Logic Pro `ProjectData` format
+# File formats: Logic Pro `ProjectData` and Ableton Live `.als`
 
 Sample set: 57 `.logicx` packages (113 `ProjectData` files across alternatives), all saved by
 **Logic Pro Creator Studio 12.2 (6644)** on macOS 26. I have no samples from older Logic versions.
@@ -82,3 +82,37 @@ the project does contain each plugin's saved AU state as an embedded XML plist (
 7. **Logic Pro hosts only Audio Units.** VST and VST3 can never appear as project plugins. The requested "VST/VST3" format column will always
    be AU or Logic built-in unless you want it to mean "a VST3 build of the same plugin is also installed". That is a decision for you.
 8. Many Logic projects here have 0 third-party records (e.g. `Band_Live_Performance_2026`, `Final export`), which is plausible but means built-ins only.
+
+
+## Saved-version discovery, in order of trust (added in v0.1.0)
+
+1. **AU state `version` field.** The embedded plist's `version` is 0 for most plugins, but plugins built on Apple's AU base classes write their
+   *component version* there (major<<16 | minor<<8 | bugfix). Verified on two real plugins: Neural Amp Modeler stores 1805 = 0x070D = 0.7.13
+   and Gateway stores 65537 = 0x10001 = 1.0.1, both equal to the installed bundles' `AudioComponents` versions. Compared as integers against the installed component.
+2. **Known conventions** in the state (see the table in the README), including inside zlib-compressed state (iZotope's payloads are zlib JSON).
+3. **Generic search** for `…version…: x.y.z` fields (three parts or more) whose key is not a format/schema/preset/dependency, plus the highest `ChunkVersion`.
+   These are shown as "(unverified)" and never produce a warning: e.g. BIAS X's `app_version` is the preset's version (1.0.0), not the plugin's (1.2.3 installed).
+4. **Product generation from the plugin's name**: "Ozone 12", "RX 11 De-re", "Pro-Q 4", "AmpliTube 5". Compared with the number in the installed plugin's name.
+   This gives the major generation only, labelled "(from name)". Plugins that put no number in their name (Auto-Tune Pro, UADx, Denoiser, EchoBoy) have nothing at this level.
+
+When none of these exist the project file simply does not contain the plugin's version (checked: FabFilter `FFBS`, UADx `uapw_chunk_version`,
+iZotope `Major/Minor Version` = state schema 1.1, Soundtoys and Native Instruments opaque data). No code path can recover what is not written.
+
+Record layout was also checked for a version field: the ~40 bytes after the AU codes contain flags and a state size; the component version
+integer does not occur at any fixed offset across 900+ records.
+
+## Ableton Live sets (`.als`)
+
+- A set is a gzip-compressed XML document; root `<Ableton MajorVersion="5" MinorVersion="12.0_12117" Creator="Ableton Live 12.1d1">`.
+  Schema 5 covers Live 10 to 12. Verified by reading all 26 sets bundled with Live 12.4.6 (419 devices).
+- Devices are the children of `<Devices>` elements. Built-in devices are elements such as `Eq8` or `Compressor2`; rack containers
+  (`AudioEffectGroupDevice` and friends) are descended into but not listed. `PluginDevice` (VST2 and VST3) and `AuPluginDevice` carry a
+  `PluginDesc` with `VstPluginInfo`, `Vst3PluginInfo` or `AuPluginInfo`; Max for Live devices are `MxDevice*`.
+- Plugin state is hex text in `Buffer`/`ProcessorState`/`ControllerState`. For AU, the buffer is the same AU state plist as in Logic, so the AU codes and the saved-version
+  rules above apply unchanged.
+- **Not validated against a set containing third-party plugins**: none was available on the development machine, and the field names inside the plugin
+  descriptors (`Name`, `Uid/Fields.0-3`, `Manufacturer`) come from the names present in Live's own binary and from the Live file format as commonly documented.
+  The parser captures whatever leaf `Value` attributes the descriptor has, tries both byte orders for VST3 class IDs, and never guesses: an
+  unmatched plugin is shown as Not installed or Uncertain.
+- Installed versions for VST3/VST2 come from Live's own plugin database (`~/Library/Application Support/Ableton/Live Database/Live-plugins-N.db`, table `plugins`:
+  `dev_identifier`, `name`, `vendor`, `version`), read read-only. Without Live installed, VST/VST3 bundles are matched by file name and reported as uncertain.

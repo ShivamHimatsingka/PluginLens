@@ -16,6 +16,8 @@ enum ProjectScanner {
                                      options: [.skipsHiddenFiles], errorHandler: { _, _ in true }) else { return [] }
         for case let url as URL in en {
             if Task.isCancelled { break }
+            // Live keeps older autosaves in "Backup" folders; they are not separate projects.
+            if url.lastPathComponent == "Backup", (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true { en.skipDescendants(); continue }
             if let project = classify(url) {
                 results.append(project)
                 progress(results.count)
@@ -30,6 +32,7 @@ enum ProjectScanner {
         let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
         if ext == "logicx", isDir { return DiscoveredProject(url: url, kind: .logicx) }
         if ext == "logic" { return DiscoveredProject(url: url, kind: .legacy) }
+        if ext == "als", !isDir { return DiscoveredProject(url: url, kind: .abletonSet) }
         if isDir, FileManager.default.fileExists(atPath: url.appendingPathComponent("Alternatives").path),
            !locateProjectData(in: url).isEmpty {
             return DiscoveredProject(url: url, kind: .logicx)
@@ -56,6 +59,7 @@ enum ProjectLoader {
 
     static func load(_ project: DiscoveredProject, index: InstalledPluginIndex) -> LoadState {
         if project.kind == .legacy { return .failed(.legacyFormat) }
+        if project.kind == .abletonSet { return loadAbleton(project, index: index) }
         let fm = FileManager.default
         guard fm.fileExists(atPath: project.url.path) else { return .failed(.unreadable("the file no longer exists")) }
 
@@ -89,7 +93,26 @@ enum ProjectLoader {
                                      warnings: warnings + parsed.warnings))
     }
 
+    private static func loadAbleton(_ project: DiscoveredProject, index: InstalledPluginIndex) -> LoadState {
+        let data: Data
+        do { data = try Data(contentsOf: project.url, options: .mappedIfSafe) }
+        catch { return .failed(.unreadable(error.localizedDescription)) }
+        let set: AbletonSet
+        do { set = try AbletonSetParser.parse(data) }
+        catch let e as ProjectError { return .failed(e) }
+        catch { return .failed(.corrupt(error.localizedDescription)) }
+        var warnings: [String] = []
+        if let m = set.majorVersion, m != "5" {
+            warnings.append("This set uses file schema \(m); only schema 5 (Live 10-12) has been tested, so some devices may be missing.")
+        }
+        let modified = (try? project.url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        let plugins = set.devices.map { AbletonResolver.resolve($0, index: index, setLiveVersion: set.liveVersion) }
+        return .loaded(ProjectReport(project: project, projectDataURL: project.url, lastModified: modified,
+                                     lastSavedFrom: set.creator, plugins: plugins, warnings: warnings))
+    }
+
     static func lastModified(of project: DiscoveredProject) -> Date? {
+        if project.kind == .abletonSet { return (try? project.url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate }
         let url = ProjectScanner.locateProjectData(in: project.url).first ?? project.url
         return (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
     }

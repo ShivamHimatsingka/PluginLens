@@ -136,7 +136,7 @@ struct ProjectDetailView: View {
                     .foregroundStyle(checkColor(p.versionCheck))
                     .help(p.versionCheck == .notStored ? "The project has no version for this plugin." : "")
                 }
-                .width(min: 100, ideal: 125)
+                .width(min: 135, ideal: 150)
                 TableColumn("Status", value: \.statusRank) { p in
                     Text(p.statusText)
                         .fontWeight(p.needsAttention ? .semibold : .regular)
@@ -166,7 +166,7 @@ struct ProjectDetailView: View {
 
     private func checkColor(_ c: VersionCheck) -> Color {
         switch c {
-        case .same: return .green
+        case .same, .sameGeneration: return .green
         case .installedNewer, .differs: return .orange
         case .installedOlder: return .red
         default: return .secondary

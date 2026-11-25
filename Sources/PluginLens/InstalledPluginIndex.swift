@@ -7,6 +7,8 @@ struct SearchDirectories: Sendable {
     var vst3: [URL]
     /// Folders of apps whose `Contents/PlugIns/*.appex` may be Audio Unit v3 extensions.
     var applications: [URL] = []
+    /// Folder holding Ableton Live's `Live-plugins-N.db`, if any.
+    var liveDatabase: URL? = nil
 
     static var standard: SearchDirectories {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -18,7 +20,8 @@ struct SearchDirectories: Sendable {
             audioUnits: dirs("Components") + [URL(fileURLWithPath: "/System/Library/Components")],
             vst: dirs("VST"),
             vst3: dirs("VST3"),
-            applications: [URL(fileURLWithPath: "/Applications"), home.appendingPathComponent("Applications")])
+            applications: [URL(fileURLWithPath: "/Applications"), home.appendingPathComponent("Applications")],
+            liveDatabase: LiveDatabase.standardDirectory)
     }
 }
 
@@ -33,6 +36,8 @@ struct InstalledComponent: Hashable, Sendable {
     var pluginName: String
     var version: String?
     var bundleURL: URL
+    /// `AudioComponents` > `version`: major<<16 | minor<<8 | bugfix.
+    var componentVersion: Int? = nil
 
     var key: String { "\(type)/\(subtype)/\(manufacturer)" }
 }
@@ -43,9 +48,14 @@ struct InstalledPluginIndex: Sendable {
     private var byKey: [String: [InstalledComponent]] = [:]
     private var vstNames: [String: [PluginFormat: String]] = [:]
     var logicVersion: String?
+    var abletonVersion: String?
+    private(set) var liveDatabase = LiveDatabase()
 
-    init(directories: SearchDirectories = .standard, logicVersion: String? = InstalledPluginIndex.detectLogicVersion()) {
+    init(directories: SearchDirectories = .standard, logicVersion: String? = InstalledPluginIndex.detectLogicVersion(),
+         abletonVersion: String? = InstalledPluginIndex.detectAbletonVersion()) {
         self.logicVersion = logicVersion
+        self.abletonVersion = abletonVersion
+        self.liveDatabase = LiveDatabase(directory: directories.liveDatabase)
         for dir in directories.audioUnits {
             for bundle in Self.bundles(in: dir, ext: "component") {
                 components.append(contentsOf: Self.components(in: bundle))
@@ -77,6 +87,12 @@ struct InstalledPluginIndex: Sendable {
     }
 
     /// VST/VST3 builds with the same bundle name, with the version read from each bundle's Info.plist ("?" if absent).
+    /// A VST/VST3 bundle whose file name matches `name` (case/punctuation-insensitive), with its Info.plist version.
+    func bundle(format: PluginFormat, named name: String) -> (name: String, version: String)? {
+        guard let v = vstNames[Self.normalize(name)]?[format] else { return nil }
+        return (name, v == "?" ? "" : v)
+    }
+
     func otherFormats(forPluginNamed name: String) -> [(format: PluginFormat, version: String)] {
         let found = vstNames[Self.normalize(name)] ?? [:]
         return [PluginFormat.vst, .vst3].compactMap { f in found[f].map { (f, $0) } }
@@ -93,6 +109,18 @@ struct InstalledPluginIndex: Sendable {
 
     static func normalize(_ s: String) -> String {
         s.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+
+    static func detectAbletonVersion() -> String? {
+        var urls = ["com.ableton.live"].compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
+        if urls.isEmpty, let apps = try? FileManager.default.contentsOfDirectory(at: URL(fileURLWithPath: "/Applications"), includingPropertiesForKeys: nil) {
+            urls = apps.filter { $0.lastPathComponent.hasPrefix("Ableton Live") && $0.pathExtension == "app" }
+        }
+        for url in urls {
+            let info = Bundle(url: url)?.infoDictionary
+            if let v = info?["CFBundleShortVersionString"] as? String, let r = v.range(of: #"\d+(\.\d+)+"#, options: .regularExpression) { return String(v[r]) }
+        }
+        return nil
     }
 
     /// Logic's bundle identifier differs between releases (Logic Pro 10/11: com.apple.logic10,
@@ -153,7 +181,8 @@ struct InstalledPluginIndex: Sendable {
             let parts = full.split(separator: ":", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
             let (mName, pName) = parts.count == 2 ? (parts[0], parts[1]) : ("", full)
             return InstalledComponent(type: type, subtype: sub, manufacturer: man, fullName: full,
-                                      manufacturerName: mName, pluginName: pName, version: version, bundleURL: bundle)
+                                      manufacturerName: mName, pluginName: pName, version: version, bundleURL: bundle,
+                                      componentVersion: d["version"] as? Int)
         }
     }
 

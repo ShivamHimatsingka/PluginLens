@@ -7,7 +7,7 @@ import XCTest
 final class RealProjectsCheckTests: XCTestCase {
     func testScanAndLoadEveryRealProject() throws {
         let path = ProcessInfo.processInfo.environment["PLUGINLENS_PROJECTS"] ?? (try? String(contentsOfFile: "/tmp/pluginlens_projects_path", encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let root = try XCTUnwrap(path.flatMap { $0.isEmpty ? nil : $0 }, "set PLUGINLENS_PROJECTS")
+        guard let root = path.flatMap({ $0.isEmpty ? nil : $0 }) else { throw XCTSkip("set PLUGINLENS_PROJECTS to a folder of projects to run this check") }
         let projects = ProjectScanner.discover(at: URL(fileURLWithPath: (root as NSString).expandingTildeInPath))
         let index = InstalledPluginIndex()
         var savedAU = Set<String>(), checks: [String: Int] = [:], changed: [String] = [], unsaved = 0, loaded = 0, failed: [String] = [], plugins = 0, missing: [String] = [], unknown: [String] = [], uncertain = 0

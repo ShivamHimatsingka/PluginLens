@@ -29,7 +29,7 @@ enum ProjectError: Error, LocalizedError, Hashable, Sendable {
 // MARK: - Discovered projects
 
 struct DiscoveredProject: Identifiable, Hashable, Sendable {
-    enum Kind: Sendable { case logicx, legacy }
+    enum Kind: Sendable { case logicx, legacy, abletonSet }
     var url: URL
     var kind: Kind
     var id: String { url.path }
@@ -72,6 +72,8 @@ enum PluginFormat: String, Hashable, Sendable {
     case vst = "VST"
     case vst3 = "VST3"
     case builtIn = "Logic built-in"
+    case abletonBuiltIn = "Ableton built-in"
+    case maxForLive = "Max for Live"
 }
 
 enum PluginStatus: String, Hashable, Sendable {
@@ -91,15 +93,17 @@ enum PluginStatus: String, Hashable, Sendable {
 /// How the version the project was saved with relates to what is installed now.
 enum VersionCheck: String, Hashable, Sendable {
     case same = "Same"
+    case sameGeneration = "Same major"
     case installedNewer = "Installed is newer"
     case installedOlder = "Installed is older"
     case differs = "Different"
+    case unverified = "Unverified"
     case cannotCompare = "Can't compare"
     case notStored = "Not stored"
     case notInstalled = "Not installed"
 
     var needsAttention: Bool { self == .installedNewer || self == .installedOlder || self == .differs }
-    var sortRank: Int { switch self { case .installedOlder: return 0; case .installedNewer: return 1; case .differs: return 2; case .cannotCompare: return 3; case .same: return 4; case .notInstalled: return 5; case .notStored: return 6 } }
+    var sortRank: Int { switch self { case .installedOlder: return 0; case .installedNewer: return 1; case .differs: return 2; case .cannotCompare: return 3; case .unverified: return 3; case .same: return 4; case .sameGeneration: return 4; case .notInstalled: return 5; case .notStored: return 6 } }
 }
 
 struct PluginEntry: Identifiable, Hashable, Sendable {
@@ -119,6 +123,12 @@ struct PluginEntry: Identifiable, Hashable, Sendable {
     /// Version the project was saved with, if the plugin wrote one into its state (or Logic's own version for built-ins).
     var savedVersion: String? = nil
     var savedVersionSource: String? = nil
+    /// How trustworthy `savedVersion` is.
+    var savedConfidence: SavedVersion.Confidence? = nil
+    /// The matched component's declared AU version (`AudioComponents` > `version`), used to compare exact AU state versions.
+    var installedComponentVersion: Int? = nil
+    /// The matched component's product name, used to compare the product generation in names ("Ozone 12").
+    var installedProductName: String? = nil
     var versionCheck: VersionCheck = .notStored
 
     var savedVersionText: String { savedVersion ?? "—" }

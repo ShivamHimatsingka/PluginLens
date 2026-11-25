@@ -33,17 +33,50 @@ enum PluginResolver {
             }
         case .audioUnit:
             e = resolveAudioUnit(r, index: index)
-            if r.saved.isEmpty {
-                e.versionCheck = e.status == .notInstalled ? .notInstalled : .notStored
-            } else {
-                let versions = r.saved.map(\.version)
-                e.savedVersion = versions.joined(separator: ", ")
-                e.savedVersionSource = r.saved.map(\.source).first
-                e.versionCheck = e.status == .notInstalled ? .notInstalled
-                    : compare(saved: versions, installed: e.isUncertain ? nil : e.installedVersion)
-            }
+            applySavedVersion(&e, saved: r.saved, storedName: r.name)
         }
         return e
+    }
+
+    /// Fills in `savedVersion` and `versionCheck` from the best evidence available: the AU state version, a convention or generic
+    /// field from the plugin state, and finally the product generation in the plugin's name.
+    static func applySavedVersion(_ e: inout PluginEntry, saved: [SavedVersion], storedName: String) {
+        let installed = e.isUncertain ? nil : e.installedVersion
+        if let best = saved.map(\.confidence).min() {
+            let group = saved.filter { $0.confidence == best }
+            e.savedConfidence = best
+            e.savedVersionSource = group.first?.source
+            e.savedVersion = group.map(\.version).joined(separator: ", ")
+            if e.status == .notInstalled { e.versionCheck = .notInstalled; return }
+            switch best {
+            case .exact:
+                let saved = group.compactMap(\.componentValue).max()
+                if let saved, !e.isUncertain, let now = e.installedComponentVersion {
+                    e.versionCheck = saved == now ? .same : (saved < now ? .installedNewer : .installedOlder)
+                } else { e.versionCheck = .cannotCompare }
+            case .heuristic:
+                // A field we could not tie to a known convention (it may describe a preset or a dependency): show it, never judge it.
+                e.savedVersion = group.map(\.version).joined(separator: ", ") + " (unverified)"
+                e.versionCheck = .unverified
+            default:
+                e.versionCheck = compare(saved: group.map(\.version), installed: installed)
+            }
+            return
+        }
+        // Nothing stored in the state: fall back to the generation in the plugin's name ("Ozone 12").
+        let stored = storedName
+        guard let gen = SavedVersionExtractor.generation(inName: stored) else {
+            e.versionCheck = e.status == .notInstalled ? .notInstalled : .notStored
+            return
+        }
+        e.savedVersion = "\(gen) (from name)"
+        e.savedVersionSource = "The plugin's name in the project (\"\(stored)\"), which includes its product generation."
+        e.savedConfidence = .generation
+        if e.status == .notInstalled { e.versionCheck = .notInstalled; return }
+        guard !e.isUncertain, let product = e.installedProductName else { e.versionCheck = .cannotCompare; return }
+        if let now = SavedVersionExtractor.generation(inName: product) {
+            e.versionCheck = now == gen ? .sameGeneration : .differs
+        } else { e.versionCheck = .cannotCompare }
     }
 
     /// Compares the version(s) saved in the project with the installed one. With several saved versions (instances saved by
@@ -52,6 +85,9 @@ enum PluginResolver {
         guard let installed else { return .cannotCompare }
         var worst: VersionCheck = .same
         for v in saved {
+            // A saved version with fewer parts ("12.4") that is a prefix of the installed one ("12.4.6") is the same release line.
+            let sp = v.split(separator: ".").count
+            if sp <= 2, installed.split(separator: " ").first.map({ $0.hasPrefix(v + ".") }) == true { continue }
             switch SavedVersionExtractor.compare(v, installed) {
             case .orderedSame: continue
             case .orderedAscending: worst = .installedNewer
@@ -62,7 +98,7 @@ enum PluginResolver {
         return worst
     }
 
-    private static func resolveBuiltIn(_ r: RawPluginRecord, index: InstalledPluginIndex) -> PluginEntry {
+    static func resolveBuiltIn(_ r: RawPluginRecord, index: InstalledPluginIndex) -> PluginEntry {
         let version = index.logicVersion.map { "\($0) (Logic Pro)" }
         return PluginEntry(id: r.key, name: BuiltInNames.displayName(for: r.name), manufacturer: "Apple",
                            format: .builtIn, installedVersion: version,
@@ -73,7 +109,7 @@ enum PluginResolver {
                            otherFormats: [], codes: "", bundlePath: nil)
     }
 
-    private static func resolveAudioUnit(_ r: RawPluginRecord, index: InstalledPluginIndex) -> PluginEntry {
+    static func resolveAudioUnit(_ r: RawPluginRecord, index: InstalledPluginIndex) -> PluginEntry {
         let exact = index.exact(type: r.type, subtype: r.subtype, manufacturer: r.manufacturer)
         if !exact.isEmpty {
             return entry(r, matches: exact, uncertain: false, index: index, extraNote: nil)
@@ -118,6 +154,7 @@ enum PluginResolver {
                            format: .au, installedVersion: version, status: status, isUncertain: isUncertain,
                            note: notes.isEmpty ? nil : notes.joined(separator: " "),
                            otherFormats: others.map(\.format),
-                           codes: r.codes, bundlePath: first.bundleURL.path)
+                           codes: r.codes, bundlePath: first.bundleURL.path,
+                           installedComponentVersion: first.componentVersion, installedProductName: first.pluginName)
     }
 }
