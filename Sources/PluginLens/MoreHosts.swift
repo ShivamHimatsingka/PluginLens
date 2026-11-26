@@ -304,3 +304,63 @@ enum ProToolsSessionParser {
         return 0
     }
 }
+
+// MARK: - Reason songs (metadata only)
+
+/// What can be read from a Reason song without its device list. A song (`.reason`, `.rsndemo`) is a 0x34-byte header (`X15_FILE`, a 0x40000-byte page size) followed by pages. In songs saved by
+/// Reason 11 and later the start of the first page is a plain IFF `FORM X15S` whose `CAT WWWI` chunk holds song properties (`PROGRAMVERSION`, `REFILLS`, `SONGTEMPO`, ...). The song body itself
+/// (a `BODY` starting with `RS1100`, after the marker `e7 1f de 31`) is statistically random (no repeated blocks, flat byte histogram, incompressible), i.e. encrypted, so the devices
+/// and plugins of a song cannot be listed. Some older songs have the plain header too, some do not; demo songs report program version 0.0.0.
+struct ReasonSongInfo: Equatable, Sendable {
+    var programVersion: String?
+    var refills: [String] = []
+    var tempoBPM: Double?
+
+    static func read(_ data: Data) -> ReasonSongInfo? {
+        guard data.count > 0x40040, data.prefix(8) == Data("X15_FILE".utf8) else { return nil }
+        let b = [UInt8](data.prefix(4 * 1024 * 1024))
+        func u32(_ i: Int) -> Int { i + 4 <= b.count ? Int(b[i]) << 24 | Int(b[i + 1]) << 16 | Int(b[i + 2]) << 8 | Int(b[i + 3]) : 0 }
+        func id(_ i: Int) -> String { i + 4 <= b.count ? String(decoding: b[i..<i + 4], as: UTF8.self) : "" }
+        // The song's FORM sits at the start of the first page, after the header; find it rather than trusting one offset.
+        var start: Int?
+        var i = 0x34
+        while i + 12 <= min(b.count, 0x80000) { if id(i) == "FORM", id(i + 8) == "X15S" { start = i; break }; i += 1 }
+        guard let formStart = start else { return nil }
+        var info = ReasonSongInfo()
+        var found = false
+        func walk(_ from: Int, _ end: Int) {
+            var o = from
+            while o + 8 <= min(end, b.count) {
+                let cid = id(o), size = u32(o + 4)
+                guard cid.utf8.allSatisfy({ $0 >= 32 && $0 < 127 }), size >= 0, o + 8 + size <= b.count else { return }
+                if cid == "FORM" || cid == "CAT " {
+                    if id(o + 8) == "WWWI", cid == "FORM" { property(o + 12, o + 8 + size) } else { walk(o + 12, o + 8 + size) }
+                } else if cid == "BODY" { return }          // the encrypted body: stop
+                o += 8 + size + (size & 1)
+            }
+        }
+        func property(_ from: Int, _ end: Int) {
+            guard id(from) == "WWID", from + 8 <= b.count else { return }
+            let wsize = u32(from + 4)
+            guard wsize >= 10, from + 8 + wsize <= b.count else { return }
+            let nameLen = Int(b[from + 8 + 8]) << 8 | Int(b[from + 8 + 9])
+            guard 10 + nameLen <= wsize else { return }
+            let name = String(decoding: b[(from + 18)..<(from + 18 + nameLen)], as: UTF8.self)
+            var o = from + 8 + wsize + (wsize & 1)
+            guard o + 8 <= end, id(o) == "BODY" else { return }
+            let bsize = u32(o + 4); o += 8
+            guard bsize >= 4, o + bsize <= b.count else { return }
+            let n = min(u32(o), bsize - 4)
+            let text = String(decoding: b[(o + 4)..<(o + 4 + n)], as: UTF8.self).trimmingCharacters(in: .controlCharacters)
+            found = true
+            switch name {
+            case "PROGRAMVERSION": info.programVersion = text == "0.0.0" ? nil : text
+            case "REFILLS": if !text.isEmpty { info.refills.append(text) }
+            case "SONGTEMPO": if let v = Double(text) { info.tempoBPM = v / 1000 }
+            default: break
+            }
+        }
+        walk(formStart + 12, formStart + 8 + u32(formStart + 4))
+        return found ? info : nil
+    }
+}

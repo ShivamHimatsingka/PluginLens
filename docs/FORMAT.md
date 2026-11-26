@@ -197,10 +197,13 @@ Checked on one real Cubase 10.5.20 project and one real Bitwig Studio 5.3 projec
 - **DAWproject (official reference)**: `deviceID` is the VST3 class ID as a canonical UUID, the VST2 unique ID in decimal, or the CLAP plugin ID verbatim (AU has no defined form); `pluginVersion` is the plugin version; `<State path=...>` names the saved state
   inside the archive (`.vstpreset`, `.clap-preset`, FXB/FXP). Built-in devices are `BuiltinDevice`, `Equalizer`, `Compressor`, `NoiseGate`, `Limiter`.
 - **Studio One native songs**: a ZIP whose plugin information is in `Song/song.xml`, `Song/mediapool.xml` and `Devices/audiomixer.xml` (see the reader's comments). Taken from a public community tool's source; no real song was available.
-- **Reason**: an official Reason Studios example is the same song in four formats (`.reason`, Ableton `.als`, Logic `.logicx`, Pro Tools `.ptx`). In the `.reason` file a plain IFF-style header (`X15_FILE`, `FORM`/`CAT` chunks, program version, ReFill list) is followed by
-  a `VS_V` / `BODY` / `RS1100` block: a constant header (`e7 1f de 31 00 00 40 00`) and then a high-entropy stream. The same block is what the Reason Rack Plugin stores as its plugin state inside the Ableton and Logic projects.
-  Identical racks produce identical bytes (so it is compression, not per-save encryption), but none of zlib, raw deflate, gzip, bzip2, xz, LZMA (several parameter sets), simple XOR/rotation transforms, or searching for the
-  stream's bytes in the other formats reproduces anything readable. The device list was therefore not recovered. The Reason Rack Plugin itself is listed correctly when it is used inside another DAW.
+- **Reason** (`.reason`, `.rsndemo`; checked on an official 2020 song saved by Reason 11.2.1 and two 2015 demo songs, v0.8.2): a 0x34-byte header (`X15_FILE`, page size 0x40000) followed by 0x40000-byte pages in which unused bytes are `0xFE`.
+  Songs from Reason 11 on start page 1 with a plain IFF `FORM X15S`: `CAT WWWI` (one `FORM WWWI` per song property: a `WWID` naming it, a `BODY` holding a length-prefixed string; `PROGRAMVERSION`, `REFILLS`, `SONGTEMPO`, `SONGLENGTHMS`, `WINDOWTITLE` ...),
+  `CAT ApVC` (`AppV`: "Reason" and the program version numbers), `FORM REMB` and a `BODY`. Both `REMB` and `BODY` hold a text magic ("Propellerheads Reason Song File", `RS1100`), zero padding, then the marker `e7 1f de 31 00 00 40 00` and a stream.
+  The streams are statistically random: in the 2020 song's 139,930-byte stream the byte histogram is flat (chi-square 247 against about 255 expected), there are no repeated 4-, 8- or 16-byte blocks, it does not compress at all, bit balance is 0.5000 and
+  serial correlation is -0.001; identical racks give identical bytes. That is encrypted (or equivalently random-looking) data, and the key lives in Reason's own software, so the devices of a song are not read. The Reason Rack Plugin stores the same kind of block as its state inside other DAWs' projects.
+  Plugin Lens reads only the plain properties: the saving Reason version (demo songs report `0.0.0`, treated as unknown) and the ReFill names, and shows them next to the explanation. Some 2015 demo songs have the plain header too, others do not.
+  The Reason Rack Plugin itself is listed correctly when it is used inside another DAW.
 
 
 ## Pro Tools sessions and auto-detected built-ins (v0.7.0)

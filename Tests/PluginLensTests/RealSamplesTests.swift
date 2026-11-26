@@ -81,10 +81,20 @@ final class RealSamplesTests: XCTestCase {
         }
     }
 
-    func testReasonSongIsListedWithAnExplanation() throws {
+    func testReasonSongIsListedWithItsReadableMetadata() throws {
         let url = root.appendingPathComponent("reason/x_reason-standalone/reason-bassline-and-pad-reason-standalone/Reason Bassline and Pad.reason")
         guard FileManager.default.fileExists(atPath: url.path) else { throw XCTSkip("missing sample") }
-        guard case .failed(.notSupportedYet) = ProjectLoader.load(try XCTUnwrap(ProjectScanner.discover(at: url).first), index: InstalledPluginIndex()) else { return XCTFail() }
+        let info = try XCTUnwrap(ReasonSongInfo.read(Data(contentsOf: url)))
+        XCTAssertEqual(info.programVersion, "11.2.1"); XCTAssertEqual(info.refills, ["Reason Factory Sound Bank"]); XCTAssertEqual(info.tempoBPM, 120)
+        guard case .failed(.notSupportedYet(_, let hint)) = ProjectLoader.load(try XCTUnwrap(ProjectScanner.discover(at: url).first), index: InstalledPluginIndex()) else { return XCTFail() }
+        XCTAssertTrue(hint.contains("saved with Reason 11.2.1"), hint)
+        // Older demo songs: some have the plain header (Abiram's: tempo and two ReFills), some do not (JB's); neither is an error.
+        let abiram = root.appendingPathComponent("reason2/AbiramBrizuela-Evolution/Abiram Brizuela - Evolution (orchestral).rsndemo")
+        if FileManager.default.fileExists(atPath: abiram.path) {
+            let old = try XCTUnwrap(ReasonSongInfo.read(Data(contentsOf: abiram))); XCTAssertEqual(old.tempoBPM, 125); XCTAssertEqual(old.refills.count, 1)
+        }
+        let jb = root.appendingPathComponent("reason2/JB-BajoCaida/JB - Bajo Caida.rsndemo")
+        if FileManager.default.fileExists(atPath: jb.path) { XCTAssertNil(ReasonSongInfo.read(try Data(contentsOf: jb))) }
     }
 
     func testDawprojectExportsFromBitwig() throws {

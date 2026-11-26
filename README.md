@@ -47,12 +47,11 @@ Your DAW only tells you after it fails to load something. Plugin Lens answers up
 Where a row says something wasn't checked, the support follows the format as documented and is covered by unit tests, and unrecognised content gives an error
 or an *uncertain* row, not a confident wrong answer. If a project is read wrongly, please open an issue (the DAW version and the first lines of the file are enough).
 
-**Listed but not readable.** These are shown in the sidebar with an explanation so you can see they were skipped: Cakewalk (`.cwp`) and Reason (`.reason`). A Reason song keeps its device list in a compressed stream that no standard decompressor opens (details in `docs/FORMAT.md`); no public description of
-it exists. Cakewalk: no sample project could be found.
+**Listed but not readable.** These are shown in the sidebar with an explanation so you can see they were skipped: Cakewalk (`.cwp`; no sample project could be found) and Reason (`.reason`). A Reason song's device list is in an encrypted block, so plugins can't be listed; Plugin Lens does read the plain part of the file and shows which Reason version saved the song and the ReFills it uses (details in `docs/FORMAT.md`).
 
 ## Install
 
-1. Download `PluginLens-0.8.1-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
+1. Download `PluginLens-0.8.2-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
 2. The app is ad-hoc signed and **not notarized**, so macOS will block the first launch. Right-click the app, choose **Open**, then **Open** again; or run:
 
    ```bash
@@ -129,7 +128,7 @@ Logic version and, if you can share it, the output of `xxd` on the first 128 byt
 
 ## Tests
 
-157 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
+160 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
 bundles in a temp folder (so results don't depend on your machine), discovery, per-project failure isolation, and exports.
 Fixtures in `Tests/Fixtures` are built by `Tools/make_fixtures.py`: only about 40 bytes per plugin record are kept; track names, text, plugin state and everything else
 are dropped (ProjectData never contains audio). `mixed_missing` has one manufacturer code rewritten so it is guaranteed not to be installed.

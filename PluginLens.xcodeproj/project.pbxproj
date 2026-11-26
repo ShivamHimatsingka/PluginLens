@@ -21,6 +21,7 @@
 		456C6EF82EC77CE19200D870 /* ProToolsSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5CF4E757792F05F9B091DA /* ProToolsSessionTests.swift */; };
 		4A0C2F332C460B017815C798 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D5ACCB52114D1BB7270E72F /* Models.swift */; };
 		4B73C551BC6E49F50034EE3E /* SavedVersionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEA67B57F87EAB488E9E2C9 /* SavedVersionTests.swift */; };
+		51FDB60F85744898AF8DA1BA /* ReasonSongTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05A2B30B843703F6E9E939A3 /* ReasonSongTests.swift */; };
 		5A918BAEDA363C395DA46C5A /* LiveDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE39F6F0760E127F83C4EDF3 /* LiveDatabase.swift */; };
 		62E69931F180807DAF7C8A49 /* MoreFormats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 019BF13FE61EB46EBDF0D3A8 /* MoreFormats.swift */; };
 		661BDA03B0CD482484D486E2 /* AbletonResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98A75D023938DE3AB3C7FC29 /* AbletonResolver.swift */; };
@@ -61,6 +62,7 @@
 		01F8E4A120A031994B5A79A0 /* PluginLensApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginLensApp.swift; sourceTree = "<group>"; };
 		046EC88A3B9DE2E773AC8E65 /* HostFormats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostFormats.swift; sourceTree = "<group>"; };
 		0537BA7035604354C968580F /* MoreHosts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreHosts.swift; sourceTree = "<group>"; };
+		05A2B30B843703F6E9E939A3 /* ReasonSongTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReasonSongTests.swift; sourceTree = "<group>"; };
 		0D4952E2999F3E0ED79DB3D4 /* InstalledPluginIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstalledPluginIndex.swift; sourceTree = "<group>"; };
 		0D5ACCB52114D1BB7270E72F /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		13BD0195F6D92044F0A774D7 /* Exporters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exporters.swift; sourceTree = "<group>"; };
@@ -133,6 +135,7 @@
 				926CD67483553A27B4B4E78D /* RealMainStageTests.swift */,
 				318AC632301BEC962E6ADCD1 /* RealProjectsCheckTests.swift */,
 				A76028C7AB7E39A69B51A54B /* RealSamplesTests.swift */,
+				05A2B30B843703F6E9E939A3 /* ReasonSongTests.swift */,
 				4DEA67B57F87EAB488E9E2C9 /* SavedVersionTests.swift */,
 				9AF98152C3EEB1BB1445B7F9 /* ScannerAndExportTests.swift */,
 				B78246C5D734E466972D9137 /* StudioOneTests.swift */,
@@ -316,6 +319,7 @@
 				16896BCC95C19155B0C797FB /* RealMainStageTests.swift in Sources */,
 				F19BF2FC936926911FC39A9F /* RealProjectsCheckTests.swift in Sources */,
 				DB911F66911C5244F5903FF9 /* RealSamplesTests.swift in Sources */,
+				51FDB60F85744898AF8DA1BA /* ReasonSongTests.swift in Sources */,
 				4B73C551BC6E49F50034EE3E /* SavedVersionTests.swift in Sources */,
 				973B04759298A943FCB3802C /* ScannerAndExportTests.swift in Sources */,
 				373E6E60A20499067D6C26F4 /* StudioOneTests.swift in Sources */,

@@ -32,7 +32,7 @@ enum ProjectScanner {
         "cpr": ("Cubase", "This file does not have the header of a Cubase or Nuendo project, so it was not read."),
         "npr": ("Nuendo", "This file does not have the header of a Cubase or Nuendo project, so it was not read."),
         "cwp": ("Cakewalk", "Cakewalk projects aren't supported yet."),
-        "reason": ("Reason", "Reason songs aren't supported yet: their device list is stored in a compressed stream that couldn't be decoded."),
+        "reason": ("Reason", "Plugins can't be listed from Reason songs: the song body, which holds the device list, is encrypted."),
     ]
 
     static func hasPrefix(_ url: URL, _ text: String) -> Bool {
@@ -112,7 +112,16 @@ enum ProjectLoader {
     static func load(_ project: DiscoveredProject, index: InstalledPluginIndex) -> LoadState {
         if project.kind == .legacy { return .failed(.legacyFormat) }
         if project.kind == .abletonSet { return loadAbleton(project, index: index) }
-        if case .unsupported(let daw, let hint) = project.kind { return .failed(.notSupportedYet(daw: daw, hint: hint)) }
+        if case .unsupported(let daw, let hint) = project.kind {
+            var hint = hint
+            if daw == "Reason", let data = try? Data(contentsOf: project.url, options: .mappedIfSafe), let info = ReasonSongInfo.read(data) {
+                var facts: [String] = []
+                if let v = info.programVersion { facts.append("saved with Reason \(v)") }
+                if !info.refills.isEmpty { facts.append("uses the ReFill\(info.refills.count == 1 ? "" : "s") " + info.refills.joined(separator: ", ")) }
+                if !facts.isEmpty { hint += " This song was " + facts.joined(separator: " and ") + "." }
+            }
+            return .failed(.notSupportedYet(daw: daw, hint: hint))
+        }
         if let parse = hostParser(for: project.kind) { return loadHostFile(project, index: index, parse: parse) }
         let fm = FileManager.default
         guard fm.fileExists(atPath: project.url.path) else { return .failed(.unreadable("the file no longer exists")) }
