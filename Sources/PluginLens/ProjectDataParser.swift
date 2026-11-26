@@ -16,12 +16,12 @@ enum ProjectDataParser {
     static let nameFieldLength = 12
     private static let builtInMarker: [UInt8] = Array("GAME".utf8)
 
-    static func parse(_ data: Data) throws -> ParseResult {
+    static func parse(_ data: Data, requireMagic: Bool = true) throws -> ParseResult {
         guard data.count >= minimumSize else {
             throw ProjectError.corrupt("ProjectData is only \(data.count) bytes long")
         }
         let b = [UInt8](data)
-        guard Array(b[0..<4]) == magic else {
+        guard !requireMagic || Array(b[0..<4]) == magic else {
             let head = b[0..<4].map { String(format: "%02x", $0) }.joined()
             throw ProjectError.unsupportedFormat("unexpected header bytes \(head) (expected 2347c0ab)")
         }

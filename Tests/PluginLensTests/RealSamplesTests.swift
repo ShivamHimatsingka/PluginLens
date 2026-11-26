@@ -76,6 +76,7 @@ final class RealSamplesTests: XCTestCase {
 
     func testProjectsWithoutPluginsLoadCleanly() throws {
         for f in ["waveform/default.tracktionedit", "ardour/empty.ardour", "ableton/sonic.als", "cubase/testdata/Example Project (Cubase SX3).cpr"] {
+            guard FileManager.default.fileExists(atPath: root.appendingPathComponent(f).path) else { continue }
             XCTAssertTrue(try load(f).plugins.isEmpty, f)
         }
     }
@@ -84,5 +85,29 @@ final class RealSamplesTests: XCTestCase {
         let url = root.appendingPathComponent("reason/x_reason-standalone/reason-bassline-and-pad-reason-standalone/Reason Bassline and Pad.reason")
         guard FileManager.default.fileExists(atPath: url.path) else { throw XCTSkip("missing sample") }
         guard case .failed(.notSupportedYet) = ProjectLoader.load(try XCTUnwrap(ProjectScanner.discover(at: url).first), index: InstalledPluginIndex()) else { return XCTFail() }
+    }
+
+    func testDawprojectExportsFromBitwig() throws {
+        for f in ["canon", "sugar", "example"] {
+            let r = try load("dawproject/\(f).dawproject")
+            XCTAssertEqual(r.lastSavedFrom?.hasPrefix("Bitwig Studio"), true, f)
+            switch f {
+            case "canon": XCTAssertEqual(r.plugins.map(\.name), ["TripleCheese"]); XCTAssertEqual(r.plugins.first?.format, .vst3)
+            case "sugar": XCTAssertEqual(r.plugins.count, 7); XCTAssertTrue(r.plugins.allSatisfy { $0.format == .dawBuiltIn }); XCTAssertNotNil(plugin(r, "Polysynth"))
+            default: XCTAssertEqual(r.plugins.map(\.name), ["Surge XT"]); XCTAssertEqual(r.plugins.first?.format, .clap)
+            }
+        }
+    }
+
+    func testStudioOneSongSavedBy7() throws {
+        let r = try load("studioone/s1_7.song")
+        XCTAssertEqual(r.lastSavedFrom, "Studio One 7.2.3.108761")
+        XCTAssertEqual(r.plugins.map(\.name).sorted(), ["Sylenth1", "Wobbleizer(64bit)", "iZotope Ozone 5"])
+        XCTAssertTrue(r.plugins.allSatisfy { $0.format == .vst })
+    }
+
+    func testNuendoProject() throws {
+        let r = try load("nuendo/ewige.npr")
+        XCTAssertEqual(r.lastSavedFrom, "Nuendo 13.0.21"); XCTAssertEqual(r.plugins.map(\.name), ["EQ"]); XCTAssertEqual(r.plugins.first?.format, .dawBuiltIn)
     }
 }

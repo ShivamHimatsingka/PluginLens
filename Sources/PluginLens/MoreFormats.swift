@@ -12,9 +12,11 @@ import Foundation
 /// Bitwig Studio, PreSonus Studio One (6.5 and later), Cubase and Nuendo (14 and later), Cubasis, VST Live and n-Track.
 enum DawprojectParser {
     static func parse(_ file: Data) throws -> HostDocument {
-        let zip = try ZipArchive(file)
-        guard zip.has("project.xml") else { throw ProjectError.unsupportedFormat("the archive has no project.xml (not a DAWproject)") }
-        let xml = try zip.read("project.xml")
+        // Some tools write the bare project.xml instead of the zip container.
+        let bare = file.prefix(64).starts(with: Data("<?xml".utf8)) || file.prefix(64).starts(with: Data("<Project".utf8))
+        let zip: ZipArchive? = bare ? nil : try ZipArchive(file)
+        if let zip, !zip.has("project.xml") { throw ProjectError.unsupportedFormat("the archive has no project.xml (not a DAWproject)") }
+        let xml = try zip?.read("project.xml") ?? file
         let d = Delegate()
         let parser = XMLParser(data: xml); parser.delegate = d
         guard parser.parse() || !d.plugins.isEmpty else { throw ProjectError.corrupt("project.xml could not be read: \(parser.parserError?.localizedDescription ?? "unknown error")") }
@@ -22,7 +24,7 @@ enum DawprojectParser {
         let app = [d.appName, d.appVersion].compactMap { $0 }.joined(separator: " ")
         var plugins = d.plugins
         for (index, path) in d.statePaths where index < plugins.count {
-            if let state = try? zip.read(path), state.count <= 16 * 1024 * 1024 { plugins[index].states = [state] }
+            if let state = try? zip?.read(path), state.count <= 16 * 1024 * 1024 { plugins[index].states = [state] }
         }
         var doc = HostDocument(host: .dawproject, savedWith: app.isEmpty ? nil : app, savedVersion: HostDocument.dotted(in: d.appVersion),
                                plugins: HostDocument.merged(plugins))
@@ -74,40 +76,41 @@ enum DawprojectParser {
 
 // MARK: - Studio One songs (.song)
 
-/// A Studio One song is a ZIP archive. The files that name plugins are `Song/song.xml`, `Song/mediapool.xml` and `Devices/audiomixer.xml`; they are XML that uses prefixes it never declares
-/// (`x:id`) and C++ scope names (`ProcessGraph::SlotNode`), which are removed before parsing. Plugins are:
-/// - `AudioDevice` elements (song.xml, mediapool.xml) with a `deviceName` attribute: "Vendor/Plugin Name" for third-party plugins, a bare name for Studio One's own;
-/// - `AudioEffectClipItem` elements (mediapool.xml) with `name` and `classID`;
-/// - `Attributes` elements (audiomixer.xml) with a `pname` attribute (not "default").
-/// This follows the structure published by the community "Studio One Tools" project; no real song was available to check it against, so the plugin format is not known (VST3, AU and VST2 are tried).
+/// A Studio One song is a ZIP archive of XML files (checked against a real Studio One 7.2 song, format version 8). The XML uses prefixes it never declares
+/// (`x:id`) and C++ scope names (`ProcessGraph::SlotNode`), which are removed before parsing. Every plugin slot, in `Devices/audiomixer.xml` (insert effects)
+/// and `Devices/audiosynthfolder.xml` (instruments), carries a `classInfo` element: `classID`, `name`, `category` (AudioEffect / AudioSynth) and `subCategory`
+/// (`VST2`, `VST3`, or an Audio Unit marker). Studio One's own devices have no VST/AU sub-category, so they are told apart by structure, not by a list of names.
+/// A VST2 `classID` packs "VST" + the plugin's four-character ID + its name; a VST3 `classID` is the class ID itself.
+/// Older songs that have no `classInfo` fall back to `AudioDevice` / `AudioEffectClipItem` elements as documented by a community tool (not checked against a real file).
 enum StudioOneSongParser {
     static func parse(_ file: Data) throws -> HostDocument {
         let zip = try ZipArchive(file)
-        guard zip.has("Song/song.xml") else { throw ProjectError.unsupportedFormat("the archive has no Song/song.xml (not a Studio One song)") }
-        var found: [FoundPlugin] = []
+        guard zip.has("Song/song.xml") || zip.has("metainfo.xml") else { throw ProjectError.unsupportedFormat("the archive has no Song/song.xml (not a Studio One song)") }
+        var found: [FoundPlugin] = [], legacy: [FoundPlugin] = []
         var seenAny = false
-        for (path, kind) in [("Song/song.xml", 0), ("Song/mediapool.xml", 1), ("Devices/audiomixer.xml", 2)] {
-            guard zip.has(path), let raw = try? zip.read(path) else { continue }
-            let d = Delegate(kind: kind)
+        for path in zip.entries.map(\.name) where path.hasSuffix(".xml") && (path.hasPrefix("Devices/") || path.hasPrefix("Song/")) {
+            guard let raw = try? zip.read(path) else { continue }
+            let d = Delegate()
             let parser = XMLParser(data: clean(raw)); parser.delegate = d
             _ = parser.parse()
             if d.sawElement { seenAny = true }
-            found += d.plugins
+            found += d.plugins; legacy += d.legacy
         }
         guard seenAny || !found.isEmpty else { throw ProjectError.corrupt("the song's XML could not be read") }
         var version: String?
         if let meta = try? zip.read("metainfo.xml"), let text = String(data: meta, encoding: .utf8), let r = text.range(of: #"Studio One[^<"]*?(\d+(\.\d+)+)"#, options: .regularExpression) {
             version = HostDocument.dotted(in: String(text[r]))
         }
-        var doc = HostDocument(host: .studioOne, savedWith: version.map { "Studio One \($0)" }, savedVersion: version, plugins: HostDocument.merged(found))
-        doc.warnings.append("Studio One songs are read from their documented structure and have not been checked against a real song. Exporting a DAWproject file is more reliable.")
+        let plugins = found.isEmpty ? legacy : found
+        var doc = HostDocument(host: .studioOne, savedWith: version.map { "Studio One \($0)" }, savedVersion: version, plugins: HostDocument.merged(plugins))
+        if found.isEmpty, !legacy.isEmpty { doc.warnings.append("This song uses an older layout that has not been checked against a real file; exporting a DAWproject file is more reliable.") }
         return doc
     }
 
     /// Removes undeclared namespace prefixes and C++ scope operators so the XML parses.
     static func clean(_ data: Data) -> Data {
         guard var text = String(data: data, encoding: .utf8) else { return data }
-        text = text.replacingOccurrences(of: "::", with: "")
+        text = text.replacingOccurrences(of: "::", with: "").replacingOccurrences(of: "\u{FEFF}", with: "")
         let rules: [(String, String)] = [(#"(</?)(?:[A-Za-z_][\w.\-]*:)+([A-Za-z_][\w.\-]*)"#, "$1$2"), (#"(\s)(?:[A-Za-z_][\w.\-]*:)+([A-Za-z_][\w.\-]*)(\s*=)"#, "$1$2$3")]
         for (pattern, template) in rules {
             if let re = try? NSRegularExpression(pattern: pattern) { text = re.stringByReplacingMatches(in: text, range: NSRange(text.startIndex..., in: text), withTemplate: template) }
@@ -116,34 +119,52 @@ enum StudioOneSongParser {
     }
 
     private final class Delegate: NSObject, XMLParserDelegate {
-        let kind: Int
         var plugins: [FoundPlugin] = []
+        var legacy: [FoundPlugin] = []
         var sawElement = false
-        init(kind: Int) { self.kind = kind }
+        private var attributeID: [String] = []
 
         func parser(_ parser: XMLParser, didStartElement name: String, namespaceURI: String?, qualifiedName: String?, attributes a: [String: String] = [:]) {
             sawElement = true
-            switch (name, kind) {
-            case ("AudioDevice", _): if let n = a["deviceName"], !n.isEmpty { add(n, classID: a["classID"]) }
-            case ("AudioEffectClipItem", _): if let n = a["name"], !n.isEmpty { add(n, classID: a["classID"]) }
-            case ("Attributes", 2): if let n = a["pname"], !n.isEmpty, n.lowercased() != "default" { add(n, classID: nil) }
+            switch name {
+            case "Attributes" where a["id"] == "classInfo" && a["category"] != nil:
+                if let n = a["name"], !n.isEmpty { plugins.append(Self.plugin(name: n, classID: a["classID"], category: a["category"] ?? "", sub: a["subCategory"] ?? "")) }
+            case "AudioDevice": if let n = a["deviceName"], !n.isEmpty { legacy.append(Self.legacyPlugin(n, classID: a["classID"])) }
+            case "AudioEffectClipItem": if let n = a["name"], !n.isEmpty { legacy.append(Self.legacyPlugin(n, classID: a["classID"])) }
             default: break
             }
         }
 
-        private func add(_ deviceName: String, classID: String?) {
+        static func hex(_ classID: String?) -> String? {
+            guard let c = classID else { return nil }
+            let h = c.replacingOccurrences(of: "-", with: "").replacingOccurrences(of: "{", with: "").replacingOccurrences(of: "}", with: "").uppercased()
+            return h.count == 32 && h.allSatisfy(\.isHexDigit) ? h : nil
+        }
+
+        static func plugin(name: String, classID: String?, category: String, sub: String) -> FoundPlugin {
+            let s = sub.lowercased()
+            let id = hex(classID)
+            if s.contains("vst3") {
+                var p = FoundPlugin(format: .vst3, name: name); p.classID = id; return p
+            }
+            if s.contains("vst") {
+                var p = FoundPlugin(format: .vst, name: name)
+                if let id, let w = CubaseParser.vst2Wrapper(id) { p.ids = w.id }
+                return p
+            }
+            if s.contains("audiounit") || s == "au" || s.contains("component") {
+                var p = FoundPlugin(format: .au, name: name); p.formatGuess = true; return p
+            }
+            return FoundPlugin(format: .dawBuiltIn, name: name, vendor: "PreSonus", isHostBuiltIn: true)
+        }
+
+        static func legacyPlugin(_ deviceName: String, classID: String?) -> FoundPlugin {
             let parts = deviceName.split(separator: "/", maxSplits: 1).map(String.init)
             var p: FoundPlugin
-            if parts.count == 2 {
-                p = FoundPlugin(format: .vst3, name: parts[1], vendor: parts[0]); p.formatGuess = true
-            } else {
-                p = FoundPlugin(format: .dawBuiltIn, name: deviceName, vendor: "PreSonus", isHostBuiltIn: true)
-            }
-            if let c = classID {
-                let hex = c.replacingOccurrences(of: "-", with: "").replacingOccurrences(of: "{", with: "").replacingOccurrences(of: "}", with: "").uppercased()
-                if hex.count == 32, hex.allSatisfy(\.isHexDigit) { p.classID = hex }
-            }
-            plugins.append(p)
+            if parts.count == 2 { p = FoundPlugin(format: .vst3, name: parts[1], vendor: parts[0]); p.formatGuess = true }
+            else { p = FoundPlugin(format: .dawBuiltIn, name: deviceName, vendor: "PreSonus", isHostBuiltIn: true) }
+            p.classID = hex(classID)
+            return p
         }
     }
 }

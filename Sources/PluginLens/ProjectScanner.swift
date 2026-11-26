@@ -117,13 +117,14 @@ enum ProjectLoader {
         let fm = FileManager.default
         guard fm.fileExists(atPath: project.url.path) else { return .failed(.unreadable("the file no longer exists")) }
 
+        if project.url.pathExtension.lowercased() == "concert" { return loadMainStage(project, index: index) }
         let dataFiles = ProjectScanner.locateProjectData(in: project.url)
         guard let dataURL = dataFiles.first else { return .failed(.noProjectData) }
 
         var warnings: [String] = []
         let ext = project.url.pathExtension.lowercased()
-        if ext == "band" || ext == "concert" {
-            warnings.append("\(ext == "band" ? "GarageBand" : "MainStage") projects are read with the Logic Pro parser. This is experimental and has not been checked against real \(ext == "band" ? "GarageBand" : "MainStage") files.")
+        if ext == "band" {
+            warnings.append("GarageBand projects are read with the Logic Pro parser. This is experimental and has not been checked against a real GarageBand project.")
         }
         let info = readInfo(project.url)
         if let major = info.major, major > testedMajorVersion {
@@ -149,6 +150,30 @@ enum ProjectLoader {
         return .loaded(ProjectReport(project: project, projectDataURL: dataURL, lastModified: modified,
                                      lastSavedFrom: info.savedFrom, plugins: plugins,
                                      warnings: warnings + parsed.warnings))
+    }
+
+    /// A MainStage concert is a folder tree of patches; each patch's channel strip (`.cst`) uses the same plugin records as Logic's ProjectData.
+    private static func loadMainStage(_ project: DiscoveredProject, index: InstalledPluginIndex) -> LoadState {
+        let fm = FileManager.default
+        guard let walker = fm.enumerator(at: project.url, includingPropertiesForKeys: nil) else { return .failed(.unreadable("the concert folder can't be read")) }
+        var order: [String] = [], merged: [String: RawPluginRecord] = [:]
+        var strips = 0, warnings: [String] = []
+        for case let url as URL in walker where url.pathExtension.lowercased() == "cst" {
+            guard let data = try? Data(contentsOf: url, options: .mappedIfSafe), let parsed = try? ProjectDataParser.parse(data, requireMagic: false) else { continue }
+            strips += 1
+            for r in parsed.records {
+                if var m = merged[r.key] { m.count += r.count; merged[r.key] = m } else { order.append(r.key); merged[r.key] = r }
+            }
+        }
+        guard strips > 0 else { return .failed(.noProjectData) }
+        let info = readInfo(project.url)
+        var logicVersion: String?
+        if let saved = info.savedFrom, let r = saved.range(of: #"\d+(\.\d+)+"#, options: .regularExpression) { logicVersion = String(saved[r]) }
+        if logicVersion == nil { logicVersion = index.installedVersion(of: .mainStage) ?? index.installedVersion(of: .logic) }
+        warnings.append("Plugins are read from the \(strips) channel strips in this concert.")
+        let plugins = order.compactMap { merged[$0] }.map { PluginResolver.resolve($0, index: index, projectLogicVersion: logicVersion) }
+        let modified = (try? project.url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        return .loaded(ProjectReport(project: project, projectDataURL: project.url, lastModified: modified, lastSavedFrom: info.savedFrom, plugins: plugins, warnings: warnings))
     }
 
     private static func hostParser(for kind: DiscoveredProject.Kind) -> ((Data) throws -> HostDocument)? {

@@ -1,6 +1,6 @@
 # Plugin Lens
 
-**See every plugin a DAW project uses, which version it was saved with, and what you have installed now.** Logic Pro, Ableton Live, REAPER, FL Studio, Pro Tools, Cubase, Nuendo, Bitwig Studio, Studio One, Waveform, Ardour, LMMS and DAWproject.
+**See every plugin a DAW project uses, which version it was saved with, and what you have installed now.** Logic Pro, MainStage, Ableton Live, REAPER, FL Studio, Pro Tools, Cubase, Nuendo, Bitwig Studio, Studio One, Waveform, Ardour, LMMS and DAWproject.
 
 Plugin Lens is a small native macOS app (Swift + SwiftUI, no dependencies). Point it at a project, or a folder full of them, and it lists
 each plugin with its manufacturer, format, the version the project was saved with (when the plugin records one), the version installed on
@@ -35,13 +35,14 @@ Your DAW only tells you after it fails to load something. Plugin Lens answers up
 | FL Studio | `.flp` | A real FL Studio 20.8.4 project with native plugins and wrapped VST2 and VST3 plugins. |
 | Waveform (Tracktion) | `.tracktionedit` | Three public edits (built-in plugins, VST plugin entries, racks). |
 | Ardour, Mixbus | `.ardour` | Two public sessions (LV2 and built-in processors). AU and VST3 processors, as saved on macOS, were not seen. |
-| Cubase, Nuendo | `.cpr`, `.npr` | 11 real Cubase projects from SX 3 to Cubase 14 whose plugin lists are known (public test projects of an MIT-licensed tool): the plugin lists and saving versions match for every one. Nuendo uses the same layout; no Nuendo file was available. |
+| Cubase, Nuendo | `.cpr`, `.npr` | 11 real Cubase projects from SX 3 to Cubase 14 whose plugin lists are known (public test projects of an MIT-licensed tool): the plugin lists and saving versions match for every one. Nuendo uses the same layout and was checked against a real Nuendo 13.0.21 project. |
 | Bitwig Studio | `.bwproject` | 11 public projects saved by Bitwig 2.4 to 5.3 on Windows and Linux: VST3 plugins (with the version that saved them), VST2 and VST3 plugin files, and Bitwig's own devices. AU and CLAP plugins were not present in any sample. |
 | LMMS | `.mmp`, `.mmpz` | Four public demo projects. |
-| DAWproject (exported by Bitwig Studio, Studio One 6.5+, Cubase and Nuendo 14+, Cubasis, VST Live, n-Track) | `.dawproject` | The official specification and schema: every plugin type, `deviceID` forms, `pluginVersion` and state files are handled; sample documents validate against `Project.xsd`. No real exported file was available. |
-| Studio One | `.song` | Read from the file structure documented by a public community tool (`Song/song.xml`, `mediapool.xml`, `audiomixer.xml`); **not checked against a real song**. Exporting a DAWproject file is more reliable. |
+| DAWproject (exported by Bitwig Studio, Studio One 6.5+, Cubase and Nuendo 14+, Cubasis, VST Live, n-Track) | `.dawproject` | Three real exports from Bitwig Studio 5.0 and 5.3.13 (a VST3 plugin, a CLAP plugin, built-in devices), and the official specification and schema. The bare `project.xml` form is accepted too. |
+| Studio One | `.song` | A real Studio One 7.2 song (three VST2 plugins, with their four-character IDs). Studio One's own devices are recognised by structure. Older song layouts are read from a community description and are flagged as unverified. |
 | Pro Tools | `.ptx`, `.ptf`, `.pts` (normal session files); also `.txt` from Export Session Info as Text | Real sessions: plug-ins (AAX IDs, Avid built-ins), the saving Pro Tools version. The text export's plug-in table is covered by hand-written examples. |
-| GarageBand, MainStage | `.band`, `.concert` | **Experimental.** Read with the Logic parser on the assumption that they share its project format; no real file was available. |
+| MainStage | `.concert` | The 16 concerts MainStage ships with: plugins are read from every patch's channel strip, built-ins are named from the installed app. |
+| GarageBand | `.band` | **Experimental.** Read with the Logic parser on the assumption that they share its project format; no real GarageBand project was available. |
 
 Where a row says something wasn't checked, the support follows the format as documented and is covered by unit tests, and unrecognised content gives an error
 or an *uncertain* row, not a confident wrong answer. If a project is read wrongly, please open an issue (the DAW version and the first lines of the file are enough).
@@ -51,7 +52,7 @@ it exists. Cakewalk: no sample project could be found.
 
 ## Install
 
-1. Download `PluginLens-0.7.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
+1. Download `PluginLens-0.8.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
 2. The app is ad-hoc signed and **not notarized**, so macOS will block the first launch. Right-click the app, choose **Open**, then **Open** again; or run:
 
    ```bash
@@ -128,7 +129,7 @@ Logic version and, if you can share it, the output of `xxd` on the first 128 byt
 
 ## Tests
 
-147 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
+154 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
 bundles in a temp folder (so results don't depend on your machine), discovery, per-project failure isolation, and exports.
 Fixtures in `Tests/Fixtures` are built by `Tools/make_fixtures.py`: only about 40 bytes per plugin record are kept; track names, text, plugin state and everything else
 are dropped (ProjectData never contains audio). `mixed_missing` has one manufacturer code rewritten so it is guaranteed not to be installed.

@@ -217,3 +217,14 @@ Checked on one real Cubase 10.5.20 project and one real Bitwig Studio 5.3 projec
   - Waveform: built-ins are the plug-ins without a plug-in format attribute (last two per track, racks excluded); FL Studio: a plug-in is any event 213 entry; REAPER, Pro Tools: the host's own vendor.
   - DAWproject: any device element in `Devices` that is not a VST2/VST3/CLAP/AU element.
   If the host is not installed, the app still shows the name Logic or Live stored and says its version cannot be read.
+
+## Studio One, MainStage and DAWproject, checked against real files (v0.8.0)
+
+- **Studio One `.song`** (checked on a Studio One 7.2 song, format version 8): the archive holds `Song/song.xml`, `Devices/audiomixer.xml` (insert effects), `Devices/audiosynthfolder.xml` (instruments) and `Presets/**.fxb`.
+  Each plugin slot has `<Attributes x:id="classInfo" classID name category subCategory>`; `subCategory` is `VST2` or `VST3` for third-party plugins, and Studio One's own devices have none.
+  A VST2 `classID` is "VST" + the four-character plugin ID + the plugin name (NUL-padded); it matches the `fxID` in the `.fxb` header. `pname` attributes are *preset* names (for example "Par défaut"), not plugins.
+  `metainfo.xml` has `Document:Generator` = `Studio One/<version>`.
+- **MainStage `.concert`**: a folder tree. `Concert.patch/**/*.patch` folders hold `data.plist` (binary plist) and a `.cst` channel strip per patch. A `.cst` starts with `OCuA` and uses the same plugin records as Logic's
+  ProjectData (`UCuA` nodes, reversed AU codes, the `GAME` marker for built-ins), so each strip is scanned with the Logic record reader (without requiring Logic's header) and the results are merged.
+- **DAWproject**: for plugins, `deviceName` is the plugin and `name` is the track-level label or preset (a Bitwig VST3 "TripleCheese" is labelled with its preset "Space Piano"). Bitwig writes `BuiltinDevice` for its own devices
+  and `ClapPlugin`/`Vst3Plugin` with a `State` path to a `.vstpreset`.

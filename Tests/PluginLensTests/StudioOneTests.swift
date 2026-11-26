@@ -40,15 +40,39 @@ final class StudioOneTests: XCTestCase {
     private func song(_ files: [(String, String)]) throws -> Data { try zipper.zip(files.map { ($0.0, Data($0.1.utf8)) }, deflate: true) }
 
     private let songXML = #"<?xml version="1.0" encoding="UTF-8"?><Song x:id="Song" xmlns:y="y"><Attributes x:id="a" name="demo"/><AudioDevice x:id="1" deviceName="FabFilter/Pro-Q 4" classID="{D39D5B69-D6AF-42FA-1234-567868495645}"/><ProcessGraph::SlotNode x:id="2"/><AudioDevice deviceName="Pro EQ"/><AudioDevice deviceName="FabFilter/Pro-Q 4"/></Song>"#
-    private let mixerXML = #"<?xml version="1.0"?><AudioMixer><Attributes pname="default"/><Attributes pname="Valhalla DSP/ValhallaRoom"/><AudioTrackChannel label="Gtr"/></AudioMixer>"#
+    private let mixerXML = #"<?xml version="1.0"?><AudioMixer><Attributes pname="Par défaut"/><AudioTrackChannel label="Gtr"/></AudioMixer>"#
     private let poolXML = #"<?xml version="1.0"?><MediaPool><AudioEffectClipItem x:id="3" name="Soundtoys/EchoBoy" classID="56535453-6f75-6e64-7479-736563686f62"/></MediaPool>"#
 
     func testNativeSongPluginsFromAllThreeFiles() throws {
         let doc = try StudioOneSongParser.parse(song([("Song/song.xml", songXML), ("Song/mediapool.xml", poolXML), ("Devices/audiomixer.xml", mixerXML), ("metainfo.xml", #"<MetaInformation><Attribute id="Application" text="Studio One 5.5.2"/></MetaInformation>"#)]))
-        XCTAssertEqual(doc.plugins.map(\.name), ["Pro-Q 4", "Pro EQ", "EchoBoy", "ValhallaRoom"])
+        XCTAssertEqual(doc.plugins.map(\.name), ["Pro-Q 4", "Pro EQ", "EchoBoy"])
         XCTAssertEqual(doc.plugins[0].vendor, "FabFilter"); XCTAssertEqual(doc.plugins[0].classID, "D39D5B69D6AF42FA1234567868495645"); XCTAssertTrue(doc.plugins[0].formatGuess)
         XCTAssertTrue(doc.plugins[1].isHostBuiltIn); XCTAssertEqual(doc.savedVersion, "5.5.2")
-        XCTAssertFalse(doc.warnings.isEmpty, "the reader says it is unverified")
+        XCTAssertFalse(doc.warnings.isEmpty, "the older layout is flagged as unverified")
+    }
+
+    /// Excerpts of a real Studio One 7.2 song (format version 8): plugin slots carry a `classInfo` element.
+    private let realMixerXML = """
+    <?xml version="1.0" encoding="UTF-8"?><AudioMixer><Attributes x:id="Inserts"><Attributes name="FX01"><Attributes x:id="deviceData" name="iZotope Ozone 5"/>
+    <Attributes x:id="ghostData" presetType="fxb"><Attributes x:id="classInfo" classID="{5653545A-6E4F-3569-7A6F-746F7065206F}" name="iZotope Ozone 5" category="AudioEffect" subCategory="VST2"/></Attributes>
+    <Attributes x:id="Presets" pname="Par défaut" dirty="0"/></Attributes>
+    <Attributes name="FX02"><Attributes x:id="ghostData"><Attributes x:id="classInfo" classID="{D39D5B69-D6AF-42FA-1234-567868495645}" name="Hive" category="AudioSynth" subCategory="VST3"/></Attributes></Attributes>
+    <Attributes name="FX03"><Attributes x:id="ghostData"><Attributes x:id="classInfo" classID="{00000000-0000-0000-0000-000000000001}" name="Pro EQ" category="AudioEffect"/></Attributes></Attributes></Attributes></AudioMixer>
+    """
+
+    func testRealSongLayoutUsesClassInfoAndIgnoresPresetNames() throws {
+        let doc = try StudioOneSongParser.parse(song([("Song/song.xml", "<Song/>"), ("Devices/audiomixer.xml", realMixerXML),
+                                                      ("metainfo.xml", #"<MetaInformation><Attribute id="Document:Generator" value="Studio One/7.2.3.108761"/></MetaInformation>"#)]))
+        XCTAssertEqual(doc.plugins.map(\.name), ["iZotope Ozone 5", "Hive", "Pro EQ"], "preset names such as 'Par défaut' are not plugins")
+        XCTAssertEqual(doc.plugins[0].format, .vst); XCTAssertEqual(doc.plugins[0].ids, "ZnO5", "the VST2 four-character ID is unpacked from the class ID")
+        XCTAssertEqual(doc.plugins[1].format, .vst3); XCTAssertEqual(doc.plugins[1].classID, "D39D5B69D6AF42FA1234567868495645")
+        XCTAssertTrue(doc.plugins[2].isHostBuiltIn, "no VST/AU sub-category means one of the DAW's own devices")
+        XCTAssertEqual(doc.savedVersion, "7.2.3.108761"); XCTAssertTrue(doc.warnings.isEmpty)
+    }
+
+    func testBareProjectXMLIsAcceptedAsDawproject() throws {
+        let doc = try DawprojectParser.parse(Data(studioOneProject.utf8))
+        XCTAssertEqual(doc.plugins.map(\.name), ["Hive", "Surge XT", "Sylenth1", "Pro EQ"])
     }
 
     func testNativeSongResolvesAgainstInstalledPlugins() throws {
