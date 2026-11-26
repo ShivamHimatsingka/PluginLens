@@ -1,6 +1,6 @@
 # Plugin Lens
 
-**See every plugin a DAW project uses, which version it was saved with, and what you have installed now.** Logic Pro, Ableton Live, REAPER, FL Studio, Pro Tools (via its text export), Waveform, Ardour, LMMS and DAWproject (Bitwig, Studio One, Cubase, Nuendo exports).
+**See every plugin a DAW project uses, which version it was saved with, and what you have installed now.** Logic Pro, Ableton Live, REAPER, FL Studio, Pro Tools, Cubase, Nuendo, Bitwig Studio, Studio One, Waveform, Ardour, LMMS and DAWproject.
 
 Plugin Lens is a small native macOS app (Swift + SwiftUI, no dependencies). Point it at a project, or a folder full of them, and it lists
 each plugin with its manufacturer, format, the version the project was saved with (when the plugin records one), the version installed on
@@ -15,13 +15,14 @@ Your DAW only tells you after it fails to load something. Plugin Lens answers up
 
 ## Features
 
-- Open a project, or a folder (scanned recursively for `.logicx` packages, extracted project folders and `.als` sets; Live's `Backup` folders are skipped).
+- Open a project, or a folder (scanned recursively for every supported project type; Live's `Backup` folders are skipped).
 - Sidebar of projects; one bad project never blocks the others, its error is shown in its own pane.
 - Table: **Plugin, Manufacturer, Format, Saved with, Installed version, Version check, Status**. Sortable and searchable.
 - Missing plugins and version changes are flagged (red/orange).
 - **Copy as Markdown** and **Export CSV** per project.
 - Scanning and parsing run in the background with a progress bar.
 - Works for any plugin from any manufacturer: plugins are matched to installed bundles by their Audio Unit codes (type, subtype, manufacturer), not by name.
+- **No plugin-name lists.** Built-in devices are recognised from the project's structure and named from the installed host app, so host updates don't make results stale.
 - Finds the saved version by itself, using several independent methods (below), and says how sure it is.
 
 ## Supported DAWs
@@ -39,19 +40,18 @@ Your DAW only tells you after it fails to load something. Plugin Lens answers up
 | LMMS | `.mmp`, `.mmpz` | Four public demo projects. |
 | DAWproject (exported by Bitwig Studio, Studio One 6.5+, Cubase and Nuendo 14+, Cubasis, VST Live, n-Track) | `.dawproject` | The official specification and schema: every plugin type, `deviceID` forms, `pluginVersion` and state files are handled; sample documents validate against `Project.xsd`. No real exported file was available. |
 | Studio One | `.song` | Read from the file structure documented by a public community tool (`Song/song.xml`, `mediapool.xml`, `audiomixer.xml`); **not checked against a real song**. Exporting a DAWproject file is more reliable. |
-| Pro Tools | `.txt` from File > Export > Session Info as Text | A small real export. The plug-in listing table (manufacturer, name, **version**, format) is covered by hand-written examples only. |
+| Pro Tools | `.ptx`, `.ptf`, `.pts` (normal session files); also `.txt` from Export Session Info as Text | Real sessions: plug-ins (AAX IDs, Avid built-ins), the saving Pro Tools version. The text export's plug-in table is covered by hand-written examples. |
 | GarageBand, MainStage | `.band`, `.concert` | **Experimental.** Read with the Logic parser on the assumption that they share its project format; no real file was available. |
 
 Where a row says something wasn't checked, the support follows the format as documented and is covered by unit tests, and unrecognised content gives an error
 or an *uncertain* row, not a confident wrong answer. If a project is read wrongly, please open an issue (the DAW version and the first lines of the file are enough).
 
-**Listed but not readable.** These are shown in the sidebar with an explanation so you can see they were skipped: Pro Tools sessions (`.ptx`: export Session Info as Text instead),
-Cakewalk (`.cwp`) and Reason (`.reason`). A Reason song keeps its device list in a compressed stream that no standard decompressor opens (details in `docs/FORMAT.md`); no public description of
+**Listed but not readable.** These are shown in the sidebar with an explanation so you can see they were skipped: Cakewalk (`.cwp`) and Reason (`.reason`). A Reason song keeps its device list in a compressed stream that no standard decompressor opens (details in `docs/FORMAT.md`); no public description of
 it exists. Cakewalk: no sample project could be found.
 
 ## Install
 
-1. Download `PluginLens-0.6.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
+1. Download `PluginLens-0.7.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
 2. The app is ad-hoc signed and **not notarized**, so macOS will block the first launch. Right-click the app, choose **Open**, then **Open** again; or run:
 
    ```bash
@@ -75,14 +75,14 @@ xcodebuild -project PluginLens.xcodeproj -scheme PluginLens -destination 'platfo
 
 `PluginLens.xcodeproj` is generated from `project.yml` by [XcodeGen](https://github.com/yonaskolb/XcodeGen) and committed, so XcodeGen is only needed
 if you change targets or settings. The app is not sandboxed because it must read arbitrary project folders and the system plugin folders.
-For scripting, `--open <path>` loads a project or folder at launch.
+For scripting, `--open <path>` loads a project or folder at launch and `--export-all <dir>` writes a CSV per project.
 
 ## What the columns mean
 
 | Column | Meaning |
 |---|---|
 | Plugin / Manufacturer | From the installed bundle when found; otherwise Logic's (truncated) name and the 4-character manufacturer code. |
-| Format | `AU`, or `Logic built-in`. `(+VST3 installed)` means a same-named VST/VST3 is also installed (Logic can't load it, so it's informational). |
+| Format | `AU`, `VST`, `VST3`, `AAX`, `CLAP`, `LV2`, or the host's built-in. `(+VST3 installed)` means a same-named VST/VST3 is also installed (Logic can't load it, so it's informational). |
 | Saved with | The plugin version recorded in the project, if the plugin records one. Built-ins show the Logic version that saved the project. |
 | Installed version | `CFBundleShortVersionString`, falling back to `CFBundleVersion`, of the matching bundle. |
 | Version check | Same / Installed is newer / Installed is older / Can't compare / Not stored. |
@@ -121,20 +121,20 @@ Logic version and, if you can share it, the output of `xxd` on the first 128 byt
 
 - Logic hosts only Audio Units, so VST and VST3 never appear as a project's format.
 - Names inside a project are truncated to 11 characters; plugins that aren't installed are shown by that name and the manufacturer code.
-- Logic built-ins have no AU codes: only a few have friendly display names, the rest show Logic's internal short name, and their version is Logic's.
+- Logic built-ins have no AU codes: their names are read from the installed Logic app (so Logic must be installed for friendly names), and their version is Logic's.
 - Plugins are found by scanning for records, not by fully parsing the project, so the app doesn't know which track or slot a plugin is on, or whether it is bypassed. Duplicates are merged.
 - When a project has several alternatives, the most recently modified one is read.
 - Never-saved "Untitled" projects contain only undo data and are reported as having no project file.
 
 ## Tests
 
-130 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
+147 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
 bundles in a temp folder (so results don't depend on your machine), discovery, per-project failure isolation, and exports.
 Fixtures in `Tests/Fixtures` are built by `Tools/make_fixtures.py`: only about 40 bytes per plugin record are kept; track names, text, plugin state and everything else
 are dropped (ProjectData never contains audio). `mixed_missing` has one manufacturer code rewritten so it is guaranteed not to be installed.
 
 Opt-in checks run against real files: set `PLUGINLENS_PROJECTS` to a folder of your own projects (`RealProjectsCheckTests`), or `PLUGINLENS_CUBASE_TESTDATA` to the testdata folder of
-[fgimian/cubase-project-plugins](https://github.com/fgimian/cubase-project-plugins) to compare against known plugin lists (`CubaseGroundTruthTests`).
+[fgimian/cubase-project-plugins](https://github.com/fgimian/cubase-project-plugins) to compare against known plugin lists (`CubaseGroundTruthTests`), or `PLUGINLENS_SAMPLES` to a folder of public sample projects (`RealSamplesTests`).
 It prints a summary and fails if any project fails unexpectedly.
 
 ## Contributing

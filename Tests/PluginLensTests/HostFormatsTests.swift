@@ -109,14 +109,14 @@ final class HostFormatsTests: XCTestCase {
         let xml = """
         <?xml version="1.0" encoding="UTF-8"?>
         <EDIT appVersion="Waveform 12.0.5" projectID="1">
-          <TRACK><PLUGIN type="volume" name="Volume &amp; Pan"/>
+          <TRACK>
             <PLUGIN type="au" name="ValhallaRoom" manufacturer="Valhalla DSP, LLC" filename="AudioUnit:Effects/aufx,Ruum,oDin" uid="1"/>
             <PLUGIN type="vst3" name="Pro-Q 4" manufacturer="FabFilter" filename="/Library/Audio/Plug-Ins/VST3/FabFilter Pro-Q 4.vst3" uid="2"/>
-            <PLUGIN type="compressor" name="Compressor"/></TRACK>
+            <PLUGIN type="compressor" name="Compressor"/><PLUGIN type="volume" name="Volume &amp; Pan"/><PLUGIN type="level"/></TRACK>
         </EDIT>
         """
         let doc = try WaveformParser.parse(Data(xml.utf8))
-        XCTAssertEqual(doc.savedVersion, "12.0.5"); XCTAssertEqual(doc.plugins.map(\.name), ["ValhallaRoom", "Pro-Q 4", "Compressor"], "volume plumbing is skipped")
+        XCTAssertEqual(doc.savedVersion, "12.0.5"); XCTAssertEqual(doc.plugins.map(\.name), ["ValhallaRoom", "Pro-Q 4", "Compressor"], "the track's volume and level are skipped")
         XCTAssertEqual(doc.plugins[0].auCodes, .init(type: "aufx", subtype: "Ruum", manufacturer: "oDin"))
         XCTAssertEqual(doc.plugins[1].fileName, "/Library/Audio/Plug-Ins/VST3/FabFilter Pro-Q 4.vst3")
         let fake = try FakeInstall()

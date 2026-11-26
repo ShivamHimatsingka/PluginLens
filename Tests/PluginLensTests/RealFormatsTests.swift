@@ -58,7 +58,7 @@ final class RealFormatsTests: XCTestCase {
             flText(199, "20.8.4.2576"),
             flText(201, "Fruity Wrapper"), flText(203, "VST2"), flEvent(213, vst2),
             flText(201, "Fruity Wrapper"), flText(203, "OTT (failed to load)"), flEvent(213, vst3),
-            flText(201, ""), flText(203, "Sampler"), flText(201, "MIDI Out"), flText(201, "Fruity Balance"),
+            flText(201, ""), flText(203, "Sampler"), flText(201, "MIDI Out"), flText(201, "Fruity Balance"), flEvent(213, [1, 2, 3, 4]),
         ]))
         XCTAssertEqual(doc.plugins.map(\.name), ["Sylenth1", "OTT", "Fruity Balance"], "the wrapper's own name wins over FL's display name")
         XCTAssertEqual(doc.plugins[0].vendor, "LennarDigital"); XCTAssertEqual(doc.plugins[0].format, .vst); XCTAssertFalse(doc.plugins[0].formatGuess)
@@ -69,9 +69,9 @@ final class RealFormatsTests: XCTestCase {
     // MARK: Waveform: names of built-ins and racks
 
     func testWaveformBuiltInNamesAndRacks() throws {
-        let xml = #"<?xml version="1.0"?><EDIT appVersion="Waveform 13.5.19"><TRACK><PLUGIN type="8bandEq" id="1"/><PLUGIN type="comp" id="2"/><PLUGIN type="naturalReverb" id="3"/><PLUGIN type="rack" id="4"/><PLUGIN type="level" id="5"/><PLUGIN type="vst" uniqueId="4c777379" filename="/usr/lib/vst/mx_tune.so" name="mx_tune" manufacturer="liuanlin-mx" id="6"/></TRACK></EDIT>"#
+        let xml = #"<?xml version="1.0"?><EDIT appVersion="Waveform 13.5.19"><TRACK><PLUGIN type="8bandEq" id="1"/><PLUGIN type="comp" id="2" presetName="Compressor: Smooth Vocals"/><PLUGIN type="naturalReverb" id="3"/><PLUGIN type="rack" rackType="9" id="4"/><PLUGIN type="vst" uniqueId="4c777379" filename="/usr/lib/vst/mx_tune.so" name="mx_tune" manufacturer="liuanlin-mx" id="6"/><PLUGIN type="volume" id="7"/><PLUGIN type="level" id="5"/></TRACK><MASTERVOLUME><PLUGIN type="volume" id="8"/></MASTERVOLUME></EDIT>"#
         let doc = try WaveformParser.parse(Data(xml.utf8))
-        XCTAssertEqual(doc.plugins.map(\.name), ["8-Band EQ", "Compressor", "Natural Reverb", "mx_tune"])
+        XCTAssertEqual(doc.plugins.map(\.name), ["8 band Eq", "Compressor", "Natural Reverb", "mx_tune"], "built-in names come from the preset name or the type identifier; racks and the track's volume/level are skipped")
         XCTAssertEqual(doc.savedVersion, "13.5.19")
     }
 

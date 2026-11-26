@@ -106,7 +106,7 @@ final class VersionLookupTests: XCTestCase {
     func testBuiltInUsesLogicVersion() throws {
         let fake = try FakeInstall()
         let raw = RawPluginRecord(kind: .builtIn, name: "St-Delay", manufacturer: "GAME", type: "", subtype: "", count: 1, firstOffset: 0)
-        let e = PluginResolver.resolve(raw, index: fake.index(logicVersion: "12.2"))
+        let e = PluginResolver.resolve(raw, index: fake.index(logicVersion: "12.2", logicNames: ["Stereo Delay", "Sample Delay", "Space Designer"]))
         XCTAssertEqual(e.name, "Stereo Delay")
         XCTAssertEqual(e.format, .builtIn)
         XCTAssertEqual(e.status, .installed)
@@ -164,5 +164,18 @@ final class VersionLookupTests: XCTestCase {
         XCTAssertEqual(e.status, .installed)
         XCTAssertEqual(e.installedVersion, "3.2.1")
         XCTAssertEqual(e.manufacturer, "Acme")
+    }
+
+    func testLogicBuiltInNamesAreMatchedToTheInstalledLogicsNamesAutomatically() throws {
+        let fake = try FakeInstall()
+        let idx = fake.index(logicNames: ["Bass Amp Designer", "ChromaVerb", "Compressor", "Sample Delay", "Space Designer", "Spreader", "Stereo Delay", "Stereo Spread", "Tape Delay"])
+        XCTAssertEqual(idx.logicDisplayName(forStored: "ChromaVerb"), "ChromaVerb", "exact")
+        XCTAssertEqual(idx.logicDisplayName(forStored: "Bass Amp"), "Bass Amp Designer", "a unique prefix")
+        XCTAssertEqual(idx.logicDisplayName(forStored: "SmpleDly"), "Sample Delay", "letters in order")
+        XCTAssertEqual(idx.logicDisplayName(forStored: "St-Delay"), "Stereo Delay")
+        XCTAssertEqual(idx.logicDisplayName(forStored: "Space D"), "Space Designer")
+        XCTAssertEqual(idx.logicDisplayName(forStored: "Spread"), "Spread", "could be Spreader or Stereo Spread: left as stored")
+        XCTAssertEqual(idx.logicDisplayName(forStored: "Brand New"), "Brand New", "an unknown plugin keeps its stored name")
+        XCTAssertEqual(fake.index(logicNames: []).logicDisplayName(forStored: "St-Delay"), "St-Delay", "without Logic installed nothing is guessed")
     }
 }

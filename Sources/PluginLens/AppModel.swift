@@ -101,6 +101,21 @@ final class AppModel {
         isScanning = false
         progress = nil
         statusText = "\(total) project\(total == 1 ? "" : "s")"
+        exportAllIfRequested()
+    }
+
+    /// `--export-all <folder>` writes a CSV and a Markdown file for every loaded project and quits. It exists so the export code can be exercised end to end from a script.
+    private func exportAllIfRequested() {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--export-all"), i + 1 < args.count else { return }
+        let dir = URL(fileURLWithPath: args[i + 1])
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        for item in items {
+            guard case .loaded(let r) = item.state else { continue }
+            try? Exporters.csv(r).write(to: dir.appendingPathComponent("\(item.project.name).csv"), atomically: true, encoding: .utf8)
+            try? Exporters.markdown(r).write(to: dir.appendingPathComponent("\(item.project.name).md"), atomically: true, encoding: .utf8)
+        }
+        NSApp.terminate(nil)
     }
 
     // MARK: Export

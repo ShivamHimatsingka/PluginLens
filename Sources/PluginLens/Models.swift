@@ -41,6 +41,14 @@ enum Host: String, CaseIterable, Sendable {
         case .flStudio: return "FL Studio"; case .proTools: return "Pro Tools"; case .dawproject: return "DAWproject"; case .lmms: return "LMMS"; case .cubase: return "Cubase"; case .nuendo: return "Nuendo"; case .bitwig: return "Bitwig Studio"; case .studioOne: return "Studio One"
         }
     }
+    /// The company behind the host. A project that names this vendor for a plugin is describing one of the host's own plugins
+    /// (REAPER writes "(Cockos)" after its own effects, Pro Tools lists "Avid"). This is about the host, not a list of plugin names.
+    var ownVendor: String? {
+        switch self {
+        case .reaper: return "Cockos"; case .proTools: return "Avid"; case .ableton: return "Ableton"; case .bitwig: return "Bitwig"
+        case .studioOne: return "PreSonus"; case .cubase, .nuendo: return "Steinberg"; case .flStudio: return "Image-Line"; default: return nil
+        }
+    }
     var bundleIdentifiers: [String] {
         switch self {
         case .reaper: return ["com.cockos.reaper"]
@@ -64,7 +72,7 @@ enum Host: String, CaseIterable, Sendable {
 // MARK: - Discovered projects
 
 struct DiscoveredProject: Identifiable, Hashable, Sendable {
-    enum Kind: Hashable, Sendable { case logicx, legacy, abletonSet, reaper, waveform, ardour, flStudio, proToolsText, dawproject, lmms, cubase, bitwig, studioOne, unsupported(daw: String, hint: String) }
+    enum Kind: Hashable, Sendable { case logicx, legacy, abletonSet, reaper, waveform, ardour, flStudio, proToolsText, proToolsSession, dawproject, lmms, cubase, bitwig, studioOne, unsupported(daw: String, hint: String) }
     var url: URL
     var kind: Kind
     var id: String { url.path }

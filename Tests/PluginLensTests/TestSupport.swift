@@ -114,8 +114,9 @@ final class FakeInstall {
         try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0).write(to: appex.appendingPathComponent("Info.plist"))
     }
 
-    func index(logicVersion: String? = "12.2") -> InstalledPluginIndex {
-        InstalledPluginIndex(directories: { var d = directories; d.applications = [root.appendingPathComponent("Apps")]; return d }(), logicVersion: logicVersion)
+    func index(logicVersion: String? = "12.2", logicNames: [String] = [], abletonNames: [String: String] = [:]) -> InstalledPluginIndex {
+        InstalledPluginIndex(directories: { var d = directories; d.applications = [root.appendingPathComponent("Apps")]; return d }(), logicVersion: logicVersion,
+                             abletonVersion: nil, logicPluginNames: logicNames, abletonDeviceNames: abletonNames)
     }
 }
 

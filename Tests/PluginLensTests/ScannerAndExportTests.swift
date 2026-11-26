@@ -125,7 +125,7 @@ final class ScannerAndExportTests: XCTestCase {
     func testCSVExportQuotesAndNeutralisesFormulas() {
         let csv = Exporters.csv(sampleReport())
         let lines = csv.components(separatedBy: "\r\n")
-        XCTAssertEqual(lines[0], "Plugin,Manufacturer,Format,Saved with,Installed version,Version check,Status,AU codes,Note")
+        XCTAssertEqual(lines[0], "Plugin,Manufacturer,Format,Saved with,Installed version,Version check,Status,IDs,Note")
         XCTAssertEqual(lines[1], "Pro-Q 4,FabFilter,AU (+VST3 installed),,4.01,Not stored,Installed,aumf/FQ4p/FabF,")
         XCTAssertTrue(lines[2].hasPrefix("\"'=EVIL(\"\"x\"\"), a|b\",Zzzz"), lines[2])
         XCTAssertTrue(lines[2].hasSuffix("\"Not here, really\""))

@@ -38,7 +38,6 @@ enum DawprojectParser {
         var statePaths: [Int: String] = [:]
         private var inDevices = 0
         private var lastPlugin: Int?
-        private static let builtIns: Set<String> = ["BuiltinDevice", "Equalizer", "Compressor", "NoiseGate", "Limiter", "Device"]
 
         func parser(_ parser: XMLParser, didStartElement name: String, namespaceURI: String?, qualifiedName: String?, attributes a: [String: String] = [:]) {
             switch name {
@@ -61,7 +60,8 @@ enum DawprojectParser {
             case "State":
                 if inDevices > 0, let path = a["path"], let i = lastPlugin { statePaths[i] = path }
             default:
-                guard inDevices > 0, Self.builtIns.contains(name), let n = a["deviceName"] else { return }
+                // Any other device element (BuiltinDevice, Equalizer, Compressor, ...) is one of the exporting application's own devices.
+                guard inDevices > 0, let n = a["deviceName"] else { return }
                 plugins.append(FoundPlugin(format: .dawBuiltIn, name: n, vendor: a["deviceVendor"], isHostBuiltIn: true))
             }
         }

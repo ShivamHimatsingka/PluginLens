@@ -146,7 +146,7 @@ same four-step discovery as for Logic, built-ins versioned with the host app (in
   203 = its display name, 212/213 = plugin state. FL's own plugins appear as their internal names ("Sytrus", "Fruity Limiter"); channel types ("Sampler", "Audio Clip", "Layer") are ignored.
   Third-party VST/AU plugins are all "Fruity Wrapper": the plugin is named by event 203 and located by scanning the wrapper state for a path ending in `.vst3`, `.component`, `.vst`, `.clap` or `.dll`
   (ASCII or UTF-16LE). If no path is found the format is unknown and the app tries VST3, AU, then VST and marks the result uncertain. The wrapper's internal layout was **not** decoded.
-- **Pro Tools**: `.ptx` is obfuscated/encrypted and is not read. Pro Tools' own "Export Session Info as Text" produces a tab-separated report starting `SESSION NAME:`. With the plug-in
+- **Pro Tools `.ptx`** (v0.7.0): see the section at the end of this file. The text export below is also supported. Pro Tools' own "Export Session Info as Text" produces a tab-separated report starting `SESSION NAME:`. With the plug-in
   option it contains a "P L U G - I N S  L I S T I N G" table (MANUFACTURER, PLUG-IN NAME, VERSION, FORMAT, STEMS, NUMBER OF PLUG-INS) and every track has a `PLUG-INS:` line of `Name (stems)` entries.
   The listing's version is used as the "saved with" version. Installed AAX plugins are found in `/Library/Application Support/Avid/Audio/Plug-Ins` (and the per-user folder) by bundle name,
   trying "Manufacturer Name" first. A real small export (no plug-in listing) was available; the listing table is implemented from the known layout and tested synthetically.
@@ -201,3 +201,19 @@ Checked on one real Cubase 10.5.20 project and one real Bitwig Studio 5.3 projec
   a `VS_V` / `BODY` / `RS1100` block: a constant header (`e7 1f de 31 00 00 40 00`) and then a high-entropy stream. The same block is what the Reason Rack Plugin stores as its plugin state inside the Ableton and Logic projects.
   Identical racks produce identical bytes (so it is compression, not per-save encryption), but none of zlib, raw deflate, gzip, bzip2, xz, LZMA (several parameter sets), simple XOR/rotation transforms, or searching for the
   stream's bytes in the other formats reproduces anything readable. The device list was therefore not recovered. The Reason Rack Plugin itself is listed correctly when it is used inside another DAW.
+
+
+## Pro Tools sessions and auto-detected built-ins (v0.7.0)
+
+- **Pro Tools `.ptx`, `.ptf`, `.pts`**: the file is lightly scrambled, not encrypted. Byte 0x12 holds the scrambling type (1 or 5) and byte 0x13 a key; the rest of the file is
+  XORed with a 256-byte table derived from the key (the table differs by type). After unscrambling, the content is a tree of blocks: marker `5A`, a block type, a size and a content type,
+  followed by child blocks. Content type 0x0003 holds the product and version that saved the session; content type 0x1017 holds one plug-in entry (name, manufacturer, AAX ID). Plug-in entries are read
+  with bounds checks, so a damaged block gives a readable error rather than a wrong list. Avid's own plug-ins are recognised structurally: their AAX manufacturer ID is the
+  host's own (`Digi`), and they are versioned with Pro Tools itself. Non-Avid AAX plug-ins are matched to installed `.aaxplugin` bundles by name.
+- **No lists of plug-in names.** Built-in devices are never recognised from a hard-coded list, so a host update cannot make the app wrong:
+  - Logic: the record's built-in marker (`GAME`) identifies the plug-in; its display name is read at run time from the `Plug-In Settings` folders inside the installed Logic app.
+  - Ableton Live: any element in a track's device chain that is not a plug-in descriptor is built-in; its display name is read from the installed Live preset library.
+  - Cubase / Nuendo: the slot's class (`Plugin isA`) says whether it is a VST plug-in or an internal one.
+  - Waveform: built-ins are the plug-ins without a plug-in format attribute (last two per track, racks excluded); FL Studio: a plug-in is any event 213 entry; REAPER, Pro Tools: the host's own vendor.
+  - DAWproject: any device element in `Devices` that is not a VST2/VST3/CLAP/AU element.
+  If the host is not installed, the app still shows the name Logic or Live stored and says its version cannot be read.

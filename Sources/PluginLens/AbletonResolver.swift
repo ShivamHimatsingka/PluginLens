@@ -8,33 +8,6 @@ import Foundation
 ///   by bundle file name, reported as uncertain.
 /// - VST2: by name against the same database, then bundle file name.
 enum AbletonResolver {
-    /// Live's internal element names that are not what the UI calls the device. Unknown names are split on capitals.
-    static let builtInNames: [String: String] = [
-        "Eq8": "EQ Eight", "FilterEQ3": "EQ Three", "Compressor2": "Compressor", "GlueCompressor": "Glue Compressor",
-        "MultibandDynamics": "Multiband Dynamics", "Reverb": "Reverb", "Hybrid": "Hybrid Reverb", "StereoGain": "Utility",
-        "AutoFilter": "Auto Filter", "AutoPan": "Auto Pan", "Delay": "Simple Delay", "PingPongDelay": "Ping Pong Delay",
-        "FilterDelay": "Filter Delay", "Echo": "Echo", "Limiter": "Limiter", "Saturator": "Saturator", "Redux": "Redux",
-        "Tuner": "Tuner", "Spectrum": "Spectrum", "Chorus2": "Chorus-Ensemble", "Phaser": "Phaser", "PhaserNew": "Phaser-Flanger",
-        "Flanger": "Flanger", "Gate": "Gate", "DrumBuss": "Drum Buss", "Pedal": "Pedal", "AmpDevice": "Amp", "Cabinet": "Cabinet",
-        "OriginalSimpler": "Simpler", "MultiSampler": "Sampler", "InstrumentVector": "Wavetable", "UltraAnalog": "Analog",
-        "LoungeLizard": "Electric", "StringStudio": "Tension", "Operator": "Operator", "DrumRack": "Drum Rack", "Looper": "Looper",
-        "Vocoder": "Vocoder", "Corpus": "Corpus", "Resonator": "Resonators", "Erosion": "Erosion", "FrequencyShifter": "Frequency Shifter",
-        "Overdrive": "Overdrive", "Roar": "Roar", "Shifter": "Shifter", "Beat Repeat": "Beat Repeat", "BeatRepeat": "Beat Repeat",
-        "Arpeggiator": "Arpeggiator", "Scale": "Scale", "Chord": "Chord", "Pitch": "Pitch", "Velocity": "Velocity", "Random": "Random",
-        "DynamicTube": "Dynamic Tube", "GrainDelay": "Grain Delay", "Transmute": "Transmute", "Emit": "Emit", "Drift": "Drift",
-        "Meld": "Meld", "Bass": "Bass", "Collision": "Collision", "Impulse": "Impulse", "Sampler": "Sampler", "Simpler": "Simpler",
-    ]
-
-    static func displayName(forBuiltIn element: String) -> String {
-        if let n = builtInNames[element] { return n }
-        var out = "", prev: Character = " "
-        for c in element {
-            if c.isUppercase, prev.isLowercase { out.append(" ") }
-            out.append(c); prev = c
-        }
-        return out.trimmingCharacters(in: .decimalDigits)
-    }
-
     static func resolve(_ d: AbletonDevice, index: InstalledPluginIndex, setLiveVersion: String?) -> PluginEntry {
         switch d.kind {
         case .builtIn: return builtIn(d, index: index, setLiveVersion: setLiveVersion)
@@ -69,7 +42,7 @@ enum AbletonResolver {
 
     private static func builtIn(_ d: AbletonDevice, index: InstalledPluginIndex, setLiveVersion: String?) -> PluginEntry {
         let now = index.abletonVersion.map { "\($0) (Live)" }
-        var e = PluginEntry(id: d.key, name: displayName(forBuiltIn: d.name), manufacturer: "Ableton", format: .abletonBuiltIn,
+        var e = PluginEntry(id: d.key, name: index.abletonDisplayName(forElement: d.name), manufacturer: "Ableton", format: .abletonBuiltIn,
                             installedVersion: now, status: now == nil ? .versionUnknown : .installed, isUncertain: false,
                             note: now == nil ? "Ableton Live is not installed, so its built-in device version can't be read."
                                              : "Built-in devices are versioned with Live itself.",

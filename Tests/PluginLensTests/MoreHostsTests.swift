@@ -30,10 +30,10 @@ final class MoreHostsTests: XCTestCase {
             [0x9C, 0xE0, 0x22, 0x02, 0x00],                       // a 4-byte event (tempo-like), to exercise sizing
             [0x40, 0x01, 0x00],                                    // 2-byte event
             text(199, "21.2.3.4004"),
-            [0x40, 0x00, 0x00], text(201, "Sytrus"),
+            [0x40, 0x00, 0x00], text(201, "Sytrus"), blob(213, [1, 2, 3, 4]),
             [0x40, 0x01, 0x00], text(201, "Fruity Wrapper"), text(203, "FabFilter Pro-Q 4"),
             blob(213, wrapperState(path: "/Library/Audio/Plug-Ins/VST3/FabFilter Pro-Q 4.vst3", extra: #"<X pluginVersion="1.2.3"/>"#)),
-            [0x40, 0x02, 0x00], text(201, "Sampler"),
+            [0x40, 0x02, 0x00], text(201, ""), text(203, "Sampler"),
             [0x40, 0x03, 0x00], text(201, "Fruity Wrapper"), text(203, "Mystery Synth"), blob(213, [1, 2, 3]),
             [0x40, 0x04, 0x00], text(201, "Fruity Wrapper"), text(203, "ValhallaRoom"),
             blob(213, [0] + Array("/Library/Audio/Plug-Ins/Components/ValhallaRoomAU64.component".utf8) + [0]),
@@ -54,7 +54,7 @@ final class MoreHostsTests: XCTestCase {
 
     func testFLStudioAsciiTextAndLongEventsAreHandled() throws {
         let long = [UInt8](repeating: 7, count: 300)     // needs a two-byte size
-        let doc = try FLStudioParser.parse(flp([text(199, "11.0.1", ascii: true), blob(210, long), text(201, "Fruity Limiter", ascii: true)]))
+        let doc = try FLStudioParser.parse(flp([text(199, "11.0.1", ascii: true), blob(210, long), text(201, "Fruity Limiter", ascii: true), blob(213, [9, 9, 9, 9])]))
         XCTAssertEqual(doc.savedVersion, "11.0.1"); XCTAssertEqual(doc.plugins.map(\.name), ["Fruity Limiter"])
     }
 
@@ -145,13 +145,12 @@ final class MoreHostsTests: XCTestCase {
     func testUnsupportedProjectsAreListedWithAReason() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("Uns-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true); defer { try? FileManager.default.removeItem(at: dir) }
-        for f in ["a.cpr", "b.ptx", "c.npr", "d.txt"] { try Data("not a session".utf8).write(to: dir.appendingPathComponent(f)) }
+        for f in ["a.cwp", "b.reason", "d.txt"] { try Data("not a session".utf8).write(to: dir.appendingPathComponent(f)) }
         let found = ProjectScanner.discover(at: dir)
-        XCTAssertEqual(found.map(\.name).sorted(), ["a", "b", "c"], "plain .txt files are not projects")
+        XCTAssertEqual(found.map(\.name).sorted(), ["a", "b"], "plain .txt files are not projects")
         for p in found {
             guard case .failed(let e) = ProjectLoader.load(p, index: FakeInstallIndex.empty), case .notSupportedYet(let daw, let hint) = e else { return XCTFail() }
             XCTAssertFalse(daw.isEmpty); XCTAssertFalse(hint.isEmpty)
         }
-        XCTAssertTrue(found.first { $0.name == "b" }.map { if case .unsupported(let d, let h) = $0.kind { return d == "Pro Tools" && h.contains("Session Info as Text") } else { return false } } ?? false)
     }
 }

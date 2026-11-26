@@ -15,12 +15,12 @@ final class AbletonTests: XCTestCase {
     private var ozoneUID: [Int] { ["VSTZ", "BDZO", "zone", " Pro"].map(int) }
     private let ozoneID = "device:vst3:audiofx:5653545a-4244-5a4f-7a6f-6e652050726f"
 
-    private func index(db rows: [(String, String, String, String)] = [], fake: FakeInstall? = nil, live: String? = "12.4.6") throws -> InstalledPluginIndex {
+    private func index(db rows: [(String, String, String, String)] = [], fake: FakeInstall? = nil, live: String? = "12.4.6", names: [String: String] = [:]) throws -> InstalledPluginIndex {
         let dbDir = tmp.appendingPathComponent("db")
         if !rows.isEmpty { try AbletonSetBuilder.database(in: dbDir, rows: rows) }
         var dirs = fake?.directories ?? SearchDirectories(audioUnits: [], vst: [], vst3: [])
         dirs.liveDatabase = rows.isEmpty ? nil : dbDir
-        return InstalledPluginIndex(directories: dirs, logicVersion: nil, abletonVersion: live)
+        return InstalledPluginIndex(directories: dirs, logicVersion: nil, abletonVersion: live, logicPluginNames: [], abletonDeviceNames: names)
     }
 
     private func load(_ xml: String, index: InstalledPluginIndex, name: String = "Song.als") throws -> LoadState {
@@ -132,7 +132,7 @@ final class AbletonTests: XCTestCase {
 
     func testBuiltInDevicesUseTheLiveVersion() throws {
         let xml = AbletonSetBuilder.set(creator: "Ableton Live 12.1", devices: "<Eq8/><Compressor2/>")
-        guard case .loaded(let r) = try load(xml, index: try index(live: "12.4.6")) else { return XCTFail() }
+        guard case .loaded(let r) = try load(xml, index: try index(live: "12.4.6", names: ["Eq8": "EQ Eight", "Compressor2": "Compressor"])) else { return XCTFail() }
         XCTAssertEqual(r.plugins.map(\.name), ["EQ Eight", "Compressor"]); XCTAssertEqual(r.plugins[0].format, .abletonBuiltIn)
         XCTAssertEqual(r.plugins[0].savedVersion, "12.1 (Live)"); XCTAssertEqual(r.plugins[0].installedVersion, "12.4.6 (Live)")
         XCTAssertEqual(r.plugins[0].versionCheck, .installedNewer)
@@ -142,9 +142,17 @@ final class AbletonTests: XCTestCase {
         XCTAssertEqual(none.plugins[0].status, .versionUnknown)
     }
 
-    func testBuiltInNamesAreHumanised() {
-        XCTAssertEqual(AbletonResolver.displayName(forBuiltIn: "Eq8"), "EQ Eight")
-        XCTAssertEqual(AbletonResolver.displayName(forBuiltIn: "SomeNewDevice"), "Some New Device")
+    func testBuiltInNamesComeFromTheInstalledLiveOrAreMadeReadable() throws {
+        let withLive = try index(names: ["Eq8": "EQ Eight"])
+        XCTAssertEqual(withLive.abletonDisplayName(forElement: "Eq8"), "EQ Eight")
+        XCTAssertEqual(withLive.abletonDisplayName(forElement: "SomeNewDevice"), "Some New Device", "a device Live doesn't know yet still reads well")
+        XCTAssertEqual(try index().abletonDisplayName(forElement: "OriginalSimpler"), "Original Simpler")
+        XCTAssertEqual(InstalledPluginIndex.humanize("Compressor2"), "Compressor"); XCTAssertEqual(InstalledPluginIndex.humanize("8bandEq"), "8 band Eq")
+    }
+
+    func testRacksAreRecognisedFromTheirStructureNotTheirName() throws {
+        let xml = AbletonSetBuilder.set(devices: "<BrandNewRackKind Id=\"1\"><Branches><Branch><DeviceChain><Devices><Limiter Id=\"2\"/><AnotherRack><Branches><Branch><DeviceChain><Devices><Gate Id=\"3\"/></Devices></DeviceChain></Branch></Branches></AnotherRack></Devices></DeviceChain></Branch></Branches></BrandNewRackKind>")
+        XCTAssertEqual(try AbletonSetParser.parse(AbletonSetBuilder.gzip(xml)).devices.map(\.name), ["Limiter", "Gate"])
     }
 
     func testNewerSchemaWarnsAndBadSetFailsAlone() throws {

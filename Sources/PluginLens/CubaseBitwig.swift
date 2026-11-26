@@ -7,17 +7,11 @@ import Foundation
 /// - the saving application: after `PAppVersion\0`, nine bytes on (thirteen for `RIF2`), the tokens application ("Cubase", "Nuendo"), "Version x.y.z", release date and architecture (absent before Cubase 4.5);
 /// - every plugin instance: after `Plugin UID\0`, 22 bytes on, the plugin's 32-digit class ID (GUID), then the key `Plugin Name` and its value. When an instrument track has been renamed, `Plugin Name`
 ///   holds the track title and the plugin's own name follows under the key `Original Plugin Name`.
+/// Whether an entry is a plugin the user can see is decided from the file: a plugin that sits in a mixer slot or instrument slot is preceded by `Plugin isA` and a class name.
+/// `VstCtrlInternalEffect` is an insert or instrument (third-party or bundled); any other class (`VstCtrlEQ`, ...) is one of the channel strip's own modules, which is how Cubase's
+/// built-in modules are told apart. Entries with no `Plugin isA` (the panner and input filter every channel carries) are mixer plumbing and are skipped.
 /// VST2 plugins appear with a wrapper class ID of the form "VST" + the four-character VST2 ID + nine characters of the name (Sylenth1 is `VST` `syl1` `sylenth1`).
 enum CubaseParser {
-    /// Objects every channel carries; they are part of the mixer, not plugins the user chose.
-    private static let structural: Set<String> = ["Standard Panner", "Input Filter", "Output Filter"]
-    /// Plugins that ship with Cubase and Nuendo (as seen in real projects and Steinberg's documentation).
-    private static let steinberg: Set<String> = ["EQ", "Mystic", "Prologue", "Spector", "Retrologue", "Padshop", "MultiScope", "MixConvert V6", "Groove Agent SE", "HALion Sonic SE",
-        "StudioEQ", "Frequency", "Squasher", "REVerence", "RoomWorks", "Quadrafuzz v2", "Vintage Compressor", "Tube Compressor", "Brickwall Limiter", "Maximizer",
-        "DeEsser", "Gate", "Expander", "Compressor", "Limiter", "Distortion", "Chopper", "AutoPan", "Phaser", "Flanger", "Chorus", "StereoEnhancer", "Metalizer", "Octaver",
-        "Pitch Correct", "VocalChain", "SuperVision", "Imager", "MonoToStereo", "Mix6To2", "DualFilter", "Tranceformer", "Grungelizer", "Bitcrusher", "Rotary", "Tuner",
-        "TrackComp", "UV22HR", "Lin Dither", "ArtsAcousticReverb"]
-
     static func parse(_ data: Data) throws -> HostDocument {
         guard data.count >= 64 else { throw ProjectError.corrupt("the project is only \(data.count) bytes long") }
         let b = [UInt8](data)
@@ -55,11 +49,12 @@ enum CubaseParser {
             j += n3 + 3
             // A renamed instrument track: the real plugin name follows.
             if let (k2, n4) = token(b, j), k2 == "Original Plugin Name", let (orig, _) = token(b, j + n4 + 5), !orig.isEmpty { name = orig }
-            if name.isEmpty || structural.contains(name) { continue }
+            if name.isEmpty { continue }
+            guard let slotClass = slotClass(b, before: at) else { continue }   // no slot: mixer plumbing
             var p = FoundPlugin(format: .vst3, name: name, vendor: nil)
             p.classID = guid.uppercased()
-            if steinberg.contains(name) { p.vendor = "Steinberg"; p.isHostBuiltIn = true; p.format = .dawBuiltIn }
-            else if let vst2 = vst2Wrapper(guid) { p.format = .vst; p.auFullName = nil; p.fileName = nil; p.vendor = vst2.id.isEmpty ? nil : nil }
+            if slotClass != "VstCtrlInternalEffect" { p.isHostBuiltIn = true; p.format = .dawBuiltIn }
+            else if vst2Wrapper(guid) != nil { p.format = .vst }
             found.append(p)
         }
         let savedWith = [app, version].compactMap { $0 }.joined(separator: " ")
@@ -68,6 +63,22 @@ enum CubaseParser {
         doc.warnings = warnings
         _ = (date, arch)
         return doc
+    }
+
+    /// The class name after the closest `Plugin isA` key before `index` (e.g. "VstCtrlInternalEffect"), or nil if the entry is not in a slot.
+    static func slotClass(_ b: [UInt8], before index: Int) -> String? {
+        let key = Array("Plugin isA\0".utf8)
+        let lo = max(0, index - 160)
+        var at: Int?, from = lo
+        while let f = find(key, in: b, from: from), f < index { at = f; from = f + key.count }
+        guard let at else { return nil }
+        let scan = at + key.count
+        var i = scan
+        while i < min(index, scan + 40) {
+            if b[i] == 0x56, i + 3 < b.count, b[i + 1] == 0x73, b[i + 2] == 0x74, let (t, _) = token(b, i - 1), t.hasPrefix("Vst") { return t }   // "Vst" after a length byte
+            i += 1
+        }
+        return nil
     }
 
     /// The VST2 four-character ID and name prefix packed into a wrapper class ID ("VST" + id + name), if this is one.

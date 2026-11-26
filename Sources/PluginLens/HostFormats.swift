@@ -22,6 +22,8 @@ struct FoundPlugin: Hashable, Sendable {
     var formatGuess = false
     /// VST3 class ID (32 hex digits), when the project records it.
     var classID: String? = nil
+    /// Other identifiers the project records (e.g. Pro Tools' AAX manufacturer/product/plugin IDs).
+    var ids: String? = nil
 
     struct AUCodes: Hashable, Sendable { var type: String; var subtype: String; var manufacturer: String }
 
@@ -106,6 +108,7 @@ enum HostResolver {
                             note: "\(p.format.rawValue) plugins are not checked against the installed plugins.", otherFormats: [], codes: "", bundlePath: nil)
         }
         if p.format != .au { PluginResolver.applySavedVersion(&e, saved: saved, storedName: p.name) }
+        if e.codes.isEmpty { e.codes = p.ids ?? p.classID ?? "" }
         return e
     }
 
@@ -259,7 +262,7 @@ enum ReaperParser {
             p.format = .jsfx; p.vendor = "REAPER"; p.name = (display as NSString).lastPathComponent; p.isHostBuiltIn = true
         default: p.format = .vst
         }
-        if vendor == "Cockos", p.format != .jsfx { p.isHostBuiltIn = true; p.format = .reaperBuiltIn }
+        if let own = Host.reaper.ownVendor, vendor == own, p.format != .jsfx { p.isHostBuiltIn = true; p.format = .reaperBuiltIn }
         return p
     }
 
@@ -283,18 +286,6 @@ enum ReaperParser {
 /// Waveform / Tracktion edits (`.tracktionedit`) are XML. Plugins are `<PLUGIN type="vst|vst3|au|volume|..." name=... filename=... uid=... manufacturer=...>`.
 /// For Audio Units `filename` is a JUCE identifier such as `AudioUnit:Effects/aufx,Ruum,oDin` (type, subtype, manufacturer).
 enum WaveformParser {
-    /// Plumbing every track has; not user-chosen plugins.
-    private static let plumbing: Set<String> = ["volume", "level", "aux", "insert", "rackinstance", "rack", "meter"]
-    private static let builtInNames: [String: String] = ["8bandEq": "8-Band EQ", "comp": "Compressor", "naturalReverb": "Natural Reverb", "eq": "4-Band EQ", "reverb": "Reverb",
-        "lowpass": "Low-pass Filter", "phaser": "Phaser", "chorus": "Chorus", "delay": "Delay", "pitchShift": "Pitch Shift", "limiter": "Limiter", "gate": "Noise Gate",
-        "tone": "Tone Generator", "fourOsc": "4OSC", "sampler": "Sampler", "impulseResponse": "Impulse Response", "midiModifier": "MIDI Modifier"]
-    static func builtInName(forType t: String) -> String {
-        if let n = builtInNames[t] { return n }
-        var out = "", prev: Character = " "
-        for c in t { if c.isUppercase, prev.isLowercase { out.append(" ") }; out.append(c); prev = c }
-        return out.prefix(1).uppercased() + out.dropFirst()
-    }
-
     static func parse(_ data: Data) throws -> HostDocument {
         guard data.count >= 16 else { throw ProjectError.corrupt("the edit is only \(data.count) bytes long") }
         let d = Delegate()
@@ -307,6 +298,12 @@ enum WaveformParser {
                             plugins: HostDocument.merged(d.plugins))
     }
 
+    /// A readable name for a built-in plugin: the part of its preset name before the colon ("Compressor: Smooth Vocals"), else its type identifier made readable.
+    static func builtInName(type: String, presetName: String?) -> String {
+        if let p = presetName, let r = p.range(of: ": "), r.lowerBound > p.startIndex { return String(p[..<r.lowerBound]) }
+        return InstalledPluginIndex.humanize(type)
+    }
+
     static func auCodes(fromIdentifier id: String) -> FoundPlugin.AUCodes? {
         guard id.hasPrefix("AudioUnit:"), let slash = id.lastIndex(of: "/") else { return nil }
         let parts = id[id.index(after: slash)...].split(separator: ",", omittingEmptySubsequences: false).map(String.init)
@@ -317,23 +314,38 @@ enum WaveformParser {
         var plugins: [FoundPlugin] = []
         var appVersion: String?
         var sawEdit = false
+        private var path: [String] = []
+        /// Plugins directly under the current TRACK, in order.
+        private var trackPlugins: [FoundPlugin] = []
+
         func parser(_ parser: XMLParser, didStartElement name: String, namespaceURI: String?, qualifiedName: String?, attributes a: [String: String] = [:]) {
             if name == "EDIT" { sawEdit = true; appVersion = a["appVersion"] }
+            defer { path.append(name) }
             guard name == "PLUGIN", let type = a["type"] else { return }
+            // A rack instance only points at a rack (its plugins are listed where the rack is defined).
+            if a["rackType"] != nil { return }
             let t = type.lowercased()
-            if plumbing.contains(t) { return }
-            let n = a["name"] ?? WaveformParser.builtInName(forType: type)
+            var p: FoundPlugin
             switch t {
             case "vst", "vst3", "au", "audiounit":
-                var p = FoundPlugin(format: t == "vst3" ? .vst3 : (t == "vst" ? .vst : .au), name: n, vendor: a["manufacturer"])
+                p = FoundPlugin(format: t == "vst3" ? .vst3 : (t == "vst" ? .vst : .au), name: a["name"] ?? type, vendor: a["manufacturer"])
                 if let f = a["filename"] {
-                    if t.hasPrefix("au") || t == "au" { p.auCodes = WaveformParser.auCodes(fromIdentifier: f); if p.auCodes == nil { p.auFullName = [a["manufacturer"], a["name"]].compactMap { $0 }.joined(separator: ": ") } }
+                    if t.hasPrefix("au") { p.auCodes = WaveformParser.auCodes(fromIdentifier: f); if p.auCodes == nil { p.auFullName = [a["manufacturer"], a["name"]].compactMap { $0 }.joined(separator: ": ") } }
                     else { p.fileName = f }
                 }
                 if p.format == .vst, p.fileName?.lowercased().hasSuffix(".vst3") == true { p.format = .vst3 }
-                plugins.append(p)
             default:
-                plugins.append(FoundPlugin(format: .waveformBuiltIn, name: n, vendor: "Tracktion", isHostBuiltIn: true))
+                p = FoundPlugin(format: .waveformBuiltIn, name: a["name"] ?? WaveformParser.builtInName(type: type, presetName: a["presetName"]), vendor: "Tracktion", isHostBuiltIn: true)
+            }
+            if path.last == "TRACK" { trackPlugins.append(p) } else if path.last != "MASTERVOLUME" { plugins.append(p) }
+        }
+
+        func parser(_ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?) {
+            path.removeLast()
+            if name == "TRACK" {
+                // Every track ends with its volume/pan and its level meter: part of the mixer strip, not plugins the user added.
+                plugins += trackPlugins.dropLast(min(2, trackPlugins.count))
+                trackPlugins = []
             }
         }
     }

@@ -53,6 +53,7 @@ final class CubaseGroundTruthTests: XCTestCase {
         func tok(_ s: String) -> [UInt8] { [UInt8(s.utf8.count + 1)] + Array(s.utf8) + [0] }
         var b: [UInt8] = Array("RIFF".utf8) + [0, 0, 1, 0] + Array("NUND".utf8) + Array("ROOT".utf8) + [0, 0, 0, 0x20]
         b += Array("PAppVersion\0".utf8) + [UInt8](repeating: 0, count: 9) + tok("Cubase") + [0, 0, 0] + tok("Version 12.0.5") + [0, 0, 0] + tok("Jan  1 2022") + [UInt8](repeating: 0, count: 7) + tok("WIN64")
+        b += Array("Plugin isA\0".utf8) + [0, 0, 0, 0] + tok("VstCtrlInternalEffect") + [0, 0, 0, 0]
         b += Array("Plugin UID\0".utf8) + [UInt8](repeating: 0, count: 22) + tok("D39D5B69D6AF42FA1234567868495645") + [0, 0, 0] + tok("Plugin Name") + [0, 0, 0, 0, 0] + tok("My Lead Track") + [0, 0, 0]
         b += tok("Original Plugin Name") + [0, 0, 0, 0, 0] + tok("Hive") + [UInt8](repeating: 0, count: 32)
         let doc = try CubaseParser.parse(Data(b))

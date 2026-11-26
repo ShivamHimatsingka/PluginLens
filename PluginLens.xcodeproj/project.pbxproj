@@ -17,6 +17,7 @@
 		2D4107A011C2909AD5972C1E /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = 5D57218C6CBCC4C37BDB6FB0 /* Fixtures */; };
 		373E6E60A20499067D6C26F4 /* StudioOneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78246C5D734E466972D9137 /* StudioOneTests.swift */; };
 		43380200B92009AA43ECE92E /* HostFormatsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60EAD513F956FD380ED27F53 /* HostFormatsTests.swift */; };
+		456C6EF82EC77CE19200D870 /* ProToolsSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5CF4E757792F05F9B091DA /* ProToolsSessionTests.swift */; };
 		4A0C2F332C460B017815C798 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D5ACCB52114D1BB7270E72F /* Models.swift */; };
 		4B73C551BC6E49F50034EE3E /* SavedVersionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEA67B57F87EAB488E9E2C9 /* SavedVersionTests.swift */; };
 		5A918BAEDA363C395DA46C5A /* LiveDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE39F6F0760E127F83C4EDF3 /* LiveDatabase.swift */; };
@@ -35,6 +36,7 @@
 		CBEB2FBFAAC2668D423F6BFD /* CubaseGroundTruthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22FE35F6BDF969EFF4E6720A /* CubaseGroundTruthTests.swift */; };
 		D856F4A02C5EC84C1ED46F23 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1193FB48C05C189B2FA72D4 /* ContentView.swift */; };
 		DB39E3C2DB99B602AC43FFE0 /* Exporters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13BD0195F6D92044F0A774D7 /* Exporters.swift */; };
+		DB911F66911C5244F5903FF9 /* RealSamplesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A76028C7AB7E39A69B51A54B /* RealSamplesTests.swift */; };
 		DCC6A2E844A01873ADCB90F6 /* ProjectDataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A45478445CCB4F1CC7D37C2 /* ProjectDataParser.swift */; };
 		DEFA4EE07B155BABBAB5AB8A /* RealFormatsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACB0C2629858EA8C04E219F6 /* RealFormatsTests.swift */; };
 		F19BF2FC936926911FC39A9F /* RealProjectsCheckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 318AC632301BEC962E6ADCD1 /* RealProjectsCheckTests.swift */; };
@@ -72,6 +74,7 @@
 		4DEA67B57F87EAB488E9E2C9 /* SavedVersionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedVersionTests.swift; sourceTree = "<group>"; };
 		5D2394ECDE4D680D0B283E8F /* MoreHostsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreHostsTests.swift; sourceTree = "<group>"; };
 		5D57218C6CBCC4C37BDB6FB0 /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = Tests/Fixtures; sourceTree = SOURCE_ROOT; };
+		5F5CF4E757792F05F9B091DA /* ProToolsSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProToolsSessionTests.swift; sourceTree = "<group>"; };
 		60EAD513F956FD380ED27F53 /* HostFormatsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostFormatsTests.swift; sourceTree = "<group>"; };
 		65374524CA95F41E1F176CE2 /* AbletonSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AbletonSet.swift; sourceTree = "<group>"; };
 		6A86C4E4D17D1E1936101D0D /* ProjectScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectScanner.swift; sourceTree = "<group>"; };
@@ -80,6 +83,7 @@
 		9AF98152C3EEB1BB1445B7F9 /* ScannerAndExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerAndExportTests.swift; sourceTree = "<group>"; };
 		A4C84F68C24AF012410F31DF /* ParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParserTests.swift; sourceTree = "<group>"; };
 		A60D0302BE343EC1CD8B8382 /* SavedVersionExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedVersionExtractor.swift; sourceTree = "<group>"; };
+		A76028C7AB7E39A69B51A54B /* RealSamplesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealSamplesTests.swift; sourceTree = "<group>"; };
 		ACB0C2629858EA8C04E219F6 /* RealFormatsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealFormatsTests.swift; sourceTree = "<group>"; };
 		AE39F6F0760E127F83C4EDF3 /* LiveDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveDatabase.swift; sourceTree = "<group>"; };
 		B5DF6E4CBF70A6AD4D49751B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -119,8 +123,10 @@
 				60EAD513F956FD380ED27F53 /* HostFormatsTests.swift */,
 				5D2394ECDE4D680D0B283E8F /* MoreHostsTests.swift */,
 				A4C84F68C24AF012410F31DF /* ParserTests.swift */,
+				5F5CF4E757792F05F9B091DA /* ProToolsSessionTests.swift */,
 				ACB0C2629858EA8C04E219F6 /* RealFormatsTests.swift */,
 				318AC632301BEC962E6ADCD1 /* RealProjectsCheckTests.swift */,
+				A76028C7AB7E39A69B51A54B /* RealSamplesTests.swift */,
 				4DEA67B57F87EAB488E9E2C9 /* SavedVersionTests.swift */,
 				9AF98152C3EEB1BB1445B7F9 /* ScannerAndExportTests.swift */,
 				B78246C5D734E466972D9137 /* StudioOneTests.swift */,
@@ -298,8 +304,10 @@
 				43380200B92009AA43ECE92E /* HostFormatsTests.swift in Sources */,
 				23C44616692B693F04338411 /* MoreHostsTests.swift in Sources */,
 				10D56AEFBB100A51B48F1D45 /* ParserTests.swift in Sources */,
+				456C6EF82EC77CE19200D870 /* ProToolsSessionTests.swift in Sources */,
 				DEFA4EE07B155BABBAB5AB8A /* RealFormatsTests.swift in Sources */,
 				F19BF2FC936926911FC39A9F /* RealProjectsCheckTests.swift in Sources */,
+				DB911F66911C5244F5903FF9 /* RealSamplesTests.swift in Sources */,
 				4B73C551BC6E49F50034EE3E /* SavedVersionTests.swift in Sources */,
 				973B04759298A943FCB3802C /* ScannerAndExportTests.swift in Sources */,
 				373E6E60A20499067D6C26F4 /* StudioOneTests.swift in Sources */,

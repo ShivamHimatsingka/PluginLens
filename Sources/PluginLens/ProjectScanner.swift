@@ -29,9 +29,6 @@ enum ProjectScanner {
 
     /// Projects of these DAWs are listed so you can see they were skipped, with the reason.
     static let unsupportedKinds: [String: (String, String)] = [
-        "ptx": ("Pro Tools", "Pro Tools sessions are encrypted. In Pro Tools use File > Export > Session Info as Text, include the plug-in listing, and open the .txt it creates."),
-        "ptf": ("Pro Tools", "Pro Tools sessions are encrypted. In Pro Tools use File > Export > Session Info as Text, include the plug-in listing, and open the .txt it creates."),
-        "pts": ("Pro Tools", "Pro Tools sessions are encrypted. In Pro Tools use File > Export > Session Info as Text, include the plug-in listing, and open the .txt it creates."),
         "cpr": ("Cubase", "This file does not have the header of a Cubase or Nuendo project, so it was not read."),
         "npr": ("Nuendo", "This file does not have the header of a Cubase or Nuendo project, so it was not read."),
         "cwp": ("Cakewalk", "Cakewalk projects aren't supported yet."),
@@ -71,6 +68,7 @@ enum ProjectScanner {
         if ext == "bwproject", !isDir { return DiscoveredProject(url: url, kind: .bitwig) }
         if ext == "dawproject", !isDir { return DiscoveredProject(url: url, kind: .dawproject) }
         if (ext == "mmp" || ext == "mmpz"), !isDir { return DiscoveredProject(url: url, kind: .lmms) }
+        if (ext == "ptx" || ext == "ptf" || ext == "pts"), !isDir { return DiscoveredProject(url: url, kind: .proToolsSession) }
         if ext == "flp", !isDir { return DiscoveredProject(url: url, kind: .flStudio) }
         if ext == "txt", !isDir, isProToolsExport(url) { return DiscoveredProject(url: url, kind: .proToolsText) }
         if ext == "song", !isDir, isZip(url) { return DiscoveredProject(url: url, kind: .studioOne) }
@@ -165,6 +163,7 @@ enum ProjectLoader {
         case .bitwig: return BitwigParser.parse
         case .lmms: return LMMSParser.parse
         case .proToolsText: return ProToolsTextParser.parse
+        case .proToolsSession: return ProToolsSessionParser.parse
         default: return nil
         }
     }

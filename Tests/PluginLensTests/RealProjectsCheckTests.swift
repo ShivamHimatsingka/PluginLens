@@ -10,7 +10,7 @@ final class RealProjectsCheckTests: XCTestCase {
         guard let root = path.flatMap({ $0.isEmpty ? nil : $0 }) else { throw XCTSkip("set PLUGINLENS_PROJECTS to a folder of projects to run this check") }
         let projects = ProjectScanner.discover(at: URL(fileURLWithPath: (root as NSString).expandingTildeInPath))
         let index = InstalledPluginIndex()
-        var savedAU = Set<String>(), checks: [String: Int] = [:], changed: [String] = [], unsaved = 0, loaded = 0, failed: [String] = [], plugins = 0, missing: [String] = [], unknown: [String] = [], uncertain = 0
+        var unsupported = 0, savedAU = Set<String>(), checks: [String: Int] = [:], changed: [String] = [], unsaved = 0, loaded = 0, failed: [String] = [], plugins = 0, missing: [String] = [], unknown: [String] = [], uncertain = 0
         let start = Date()
         for p in projects {
             switch ProjectLoader.load(p, index: index) {
@@ -24,12 +24,13 @@ final class RealProjectsCheckTests: XCTestCase {
                     checks[e.versionCheck.rawValue, default: 0] += 1
                     if e.versionCheck.needsAttention && e.formatText != "Logic built-in" { changed.append("\(p.name): \(e.name) saved=\(e.savedVersionText) installed=\(e.versionText) [\(e.versionCheck.rawValue)]") }
                 }
+            case .failed(.notSupportedYet): unsupported += 1
             case .failed(.noProjectData): unsaved += 1   // never-saved "Untitled" stubs hold only undo data
             case .failed(let e): failed.append("\(p.name): \(e.localizedDescription)")
             case .pending, .loading: XCTFail("loader returned a transient state")
             }
         }
-        print("REALCHECK projects=\(projects.count) loaded=\(loaded) unsavedStubs=\(unsaved) failed=\(failed.count) plugins=\(plugins) missing=\(missing.count) unknown=\(unknown.count) uncertain=\(uncertain) seconds=\(String(format: "%.2f", Date().timeIntervalSince(start)))")
+        print("REALCHECK projects=\(projects.count) loaded=\(loaded) unsavedStubs=\(unsaved) listedUnsupported=\(unsupported) failed=\(failed.count) plugins=\(plugins) missing=\(missing.count) unknown=\(unknown.count) uncertain=\(uncertain) seconds=\(String(format: "%.2f", Date().timeIntervalSince(start)))")
         if ProcessInfo.processInfo.environment["PLUGINLENS_LISTALL"] != nil || FileManager.default.fileExists(atPath: "/tmp/pluginlens_listall") { for p in projects { if case .loaded(let r) = ProjectLoader.load(p, index: index) { print("REALCHECK LISTALL \(p.name): " + r.plugins.map { "\($0.name) [\($0.format.rawValue) \($0.savedVersionText) \($0.status.rawValue)]" }.joined(separator: "; ")) } } }
         print("REALCHECK versionChecks=\(checks.sorted { $0.key < $1.key })")
         savedAU.sorted().forEach { print("REALCHECK AU \($0)") }

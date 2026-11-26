@@ -15,7 +15,7 @@ enum Exporters {
     }
 
     static func csv(_ report: ProjectReport) -> String {
-        var rows = [["Plugin", "Manufacturer", "Format", "Saved with", "Installed version", "Version check", "Status", "AU codes", "Note"]]
+        var rows = [["Plugin", "Manufacturer", "Format", "Saved with", "Installed version", "Version check", "Status", "IDs", "Note"]]
         for p in report.plugins {
             rows.append([p.name, p.manufacturer, p.formatText, p.savedVersion ?? "", p.installedVersion.map { p.isUncertain ? "\($0) (uncertain)" : $0 } ?? "",
                          p.versionCheck.rawValue, p.statusText, p.codes, p.note ?? ""])

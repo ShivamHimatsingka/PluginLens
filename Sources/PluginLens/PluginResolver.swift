@@ -1,16 +1,5 @@
 import Foundation
 
-/// Display names for Logic's internal built-in short names. Only entries we are confident about;
-/// anything else is shown as stored. (Logic stores built-in names truncated to 11 characters.)
-enum BuiltInNames {
-    static let table: [String: String] = [
-        "St-Delay": "Stereo Delay",
-        "SmpleDly": "Sample Delay",
-        "Space D": "Space Designer",
-    ]
-    static func displayName(for stored: String) -> String { table[stored] ?? stored }
-}
-
 /// Matches parsed records to installed bundles.
 ///
 /// Rules, in order:
@@ -100,7 +89,7 @@ enum PluginResolver {
 
     static func resolveBuiltIn(_ r: RawPluginRecord, index: InstalledPluginIndex) -> PluginEntry {
         let version = index.logicVersion.map { "\($0) (Logic Pro)" }
-        return PluginEntry(id: r.key, name: BuiltInNames.displayName(for: r.name), manufacturer: "Apple",
+        return PluginEntry(id: r.key, name: index.logicDisplayName(forStored: r.name), manufacturer: "Apple",
                            format: .builtIn, installedVersion: version,
                            status: version == nil ? .versionUnknown : .installed,
                            isUncertain: false,

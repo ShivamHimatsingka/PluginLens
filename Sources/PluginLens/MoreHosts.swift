@@ -11,7 +11,6 @@ import Foundation
 /// 199 = FL Studio version, 201 = a plugin's internal name ("Sytrus", "Fruity Wrapper"), 203 = its display name,
 /// 212/213 = plugin state. Third-party VST/AU plugins are always hosted in "Fruity Wrapper", whose state contains the plugin file's path.
 enum FLStudioParser {
-    private static let channelTypes: Set<String> = ["Sampler", "Audio Clip", "Layer", "Automation Clip", "MIDI Out", ""]
     static let maxState = 16 * 1024 * 1024
 
     static func parse(_ data: Data) throws -> HostDocument {
@@ -26,7 +25,7 @@ enum FLStudioParser {
         if 22 + declared > b.count { warnings.append("The project file is shorter than it declares; the end may be missing.") }
 
         var version: String?
-        var groups: [(internal: String, name: String?, states: [Data])] = []
+        var groups: [(internal: String, name: String?, states: [Data], hasPluginData: Bool)] = []
         while i < end {
             let id = Int(b[i]); i += 1
             var size = 0
@@ -48,15 +47,20 @@ enum FLStudioParser {
             i += size
             switch id {
             case 199: version = text(payload)
-            case 201: groups.append((text(payload), nil, []))
+            case 201: groups.append((text(payload), nil, [], false))
             case 203: if !groups.isEmpty, groups[groups.count - 1].name == nil { groups[groups.count - 1].name = text(payload) }
-            case 212, 213: if !groups.isEmpty, payload.count <= maxState { groups[groups.count - 1].states.append(Data(payload)) }
+            case 212, 213:
+                if !groups.isEmpty {
+                    if id == 213 { groups[groups.count - 1].hasPluginData = true }
+                    if payload.count <= maxState { groups[groups.count - 1].states.append(Data(payload)) }
+                }
             default: break
             }
         }
 
         var found: [FoundPlugin] = []
-        for g in groups {
+        // A plugin carries plugin data (event 213); channel types such as samplers, layers and clips do not.
+        for g in groups where g.hasPluginData {
             if g.internal == "Fruity Wrapper" {
                 // Wrapper state: u32 type (8 or 10), then chunks of { u32 id, u64 size, bytes }:
                 // 51 = VST2 four-character ID, 53 = the plugin's own state, 54 = name, 55 = plugin path, 56 = vendor.
@@ -77,7 +81,7 @@ enum FLStudioParser {
                     if chunks?[51] != nil { p.format = .vst } else { p.formatGuess = true }   // VST2 plugins carry a four-character ID; VST3/AU do not
                 }
                 found.append(p)
-            } else if !channelTypes.contains(g.internal) {
+            } else {
                 found.append(FoundPlugin(format: .flBuiltIn, name: g.internal, vendor: "Image-Line", isHostBuiltIn: true))
             }
         }
@@ -178,7 +182,7 @@ enum ProToolsTextParser {
                 guard let name = cell(["PLUG-IN NAME", "PLUGIN NAME", "NAME"]) else { continue }
                 let vendor = cell(["MANUFACTURER"]), version = cell(["VERSION"]), fmt = cell(["FORMAT"])?.lowercased()
                 var p = FoundPlugin(format: .aax, name: name, vendor: vendor)
-                if vendor?.caseInsensitiveCompare("Avid") == .orderedSame { p.format = .proToolsBuiltIn; p.isHostBuiltIn = true }
+                if let own = Host.proTools.ownVendor, vendor?.caseInsensitiveCompare(own) == .orderedSame { p.format = .proToolsBuiltIn; p.isHostBuiltIn = true }
                 else if fmt?.contains("audiosuite") == true { p.format = .aax }
                 if let version { p.knownSaved = [SavedVersion(version: version, source: "Pro Tools plug-in listing", confidence: .convention)] }
                 found.append(p)
@@ -200,5 +204,103 @@ enum ProToolsTextParser {
         }
         if !sawListing, !merged.isEmpty { warnings.append("This export has no plug-in listing, so manufacturers and versions are unknown. In Pro Tools, tick the plug-in listing when exporting Session Info as Text.") }
         return HostDocument(host: .proTools, savedWith: nil, savedVersion: nil, plugins: merged, warnings: warnings)
+    }
+}
+
+// MARK: - Pro Tools sessions (.ptx, .ptf, .pts)
+
+/// A Pro Tools session is a scrambled file: byte 0x12 says how (1 for Pro Tools 5-9, 5 for 10 and later) and byte 0x13 is a key value. From offset 0x14 each byte is XORed with a table entry
+/// generated from the key: for type 1 the entry is `(i * delta) & 255` indexed by the byte offset modulo 256; for type 5 it is `(i * delta) & 255` indexed by `offset >> 12`.
+/// `delta` is the first `i` in 0..<256 with `(i * m) & 255 == key` (m = 53 for type 1, 11 for type 5), negated for type 5.
+/// The unscrambled data is a tree of blocks: `5A`, a 16-bit block type, a 32-bit size, a 16-bit content type, then the content (children are blocks inside the content).
+/// Byte 0x11 says whether integers are big-endian. Content type 0x0003 holds the product ("Pro Tools Ultimate"), its version ("2019.12.0") and the kind of file; content type 0x1017 is one entry of the
+/// session's plugin list: a length-prefixed plugin name, three byte-reversed four-character IDs (AAX manufacturer, product, plugin), and a length-prefixed effect identifier.
+enum ProToolsSessionParser {
+    /// The manufacturer ID Pro Tools uses for its own plugins (Digidesign's four-character code); it is an ID in the file format, not a plugin name.
+    static let ownManufacturerID = "Digi"
+    private static let maxBlocks = 200_000
+
+    static func parse(_ file: Data) throws -> HostDocument {
+        guard file.count >= 0x40 else { throw ProjectError.corrupt("the session is only \(file.count) bytes long") }
+        var b = [UInt8](file)
+        guard b[0] == 0x03 else { throw ProjectError.unsupportedFormat("the file does not start like a Pro Tools session") }
+        let type = b[0x12], key = b[0x13]
+        guard type == 1 || type == 5 else { throw ProjectError.unsupportedFormat("unknown Pro Tools scrambling type \(type)") }
+        let delta = unscrambleDelta(key: key, type: type)
+        var table = [UInt8](repeating: 0, count: 256)
+        for i in 0..<256 { table[i] = UInt8(truncatingIfNeeded: i * Int(delta)) }
+        for i in 0x14..<b.count { b[i] ^= table[type == 1 ? (i & 0xFF) : ((i >> 12) & 0xFF)] }
+        let big = b[0x11] != 0
+
+        func u16(_ p: Int) -> Int { big ? Int(b[p]) << 8 | Int(b[p + 1]) : Int(b[p + 1]) << 8 | Int(b[p]) }
+        func u32(_ p: Int) -> Int { big ? Int(b[p]) << 24 | Int(b[p + 1]) << 16 | Int(b[p + 2]) << 8 | Int(b[p + 3]) : Int(b[p + 3]) << 24 | Int(b[p + 2]) << 16 | Int(b[p + 1]) << 8 | Int(b[p]) }
+
+        struct Block { var contentType: Int; var offset: Int; var size: Int }
+        var blocks: [Block] = []
+        var count = 0
+        func parseBlock(_ pos: Int, _ end: Int, _ depth: Int) -> Int? {
+            guard depth < 24, pos + 9 <= end, b[pos] == 0x5A else { return nil }
+            let bt = u16(pos + 1), size = u32(pos + 3), ct = u16(pos + 7), off = pos + 7
+            guard bt & 0xFF00 == 0, size >= 2, off + size <= end, count < maxBlocks else { return nil }
+            count += 1
+            blocks.append(Block(contentType: ct, offset: off, size: size))
+            var i = 1
+            while i < size, pos + i + 9 <= off + size {
+                if let n = parseBlock(pos + i, off + size, depth + 1) { i += n + 7 } else { i += 1 }
+            }
+            return size
+        }
+        var p = 0x14
+        while p + 9 <= b.count {
+            if let n = parseBlock(p, b.count, 0) { p += n + 7 } else { p += 1 }
+        }
+        guard !blocks.isEmpty else { throw ProjectError.corrupt("no blocks could be read (wrong key or damaged file)") }
+
+        /// Length-prefixed printable strings in a range: (offset after the string, text).
+        func strings(_ lo: Int, _ hi: Int) -> [(end: Int, text: String)] {
+            var out: [(Int, String)] = []
+            var k = lo
+            while k + 5 <= hi {
+                let len = u32(k)
+                if len >= 2, len <= 200, k + 4 + len <= hi, b[(k + 4)..<(k + 4 + len)].allSatisfy({ $0 >= 0x20 && $0 < 0x7F }) {
+                    out.append((k + 4 + len, String(decoding: b[(k + 4)..<(k + 4 + len)], as: UTF8.self))); k += 4 + len
+                } else { k += 1 }
+            }
+            return out
+        }
+
+        var savedWith: String?, savedVersion: String?
+        for blk in blocks where blk.contentType == 0x0003 {
+            let s = strings(blk.offset + 2, blk.offset + blk.size)
+            if let i = s.firstIndex(where: { $0.text.hasPrefix("Pro Tools") && !$0.text.contains("Session") }),
+               let v = s[(i + 1)...].first(where: { SavedVersionExtractor.isDottedVersion($0.text) }) {
+                savedWith = "\(s[i].text) \(v.text)"; savedVersion = v.text; break
+            }
+        }
+
+        var found: [FoundPlugin] = []
+        for blk in blocks where blk.contentType == 0x1017 {
+            let lo = blk.offset + 2, hi = blk.offset + blk.size
+            let s = strings(lo, hi)
+            guard let first = s.first, first.end + 12 <= hi else { continue }
+            let codes = (0..<3).map { k -> String in
+                String(decoding: b[(first.end + 4 * k)..<(first.end + 4 * k + 4)].reversed(), as: UTF8.self)
+            }
+            guard codes.allSatisfy({ $0.utf8.allSatisfy { $0 >= 0x20 && $0 < 0x7F } }) else { continue }
+            var plugin = FoundPlugin(format: .aax, name: first.text, vendor: nil)
+            plugin.ids = codes.joined(separator: ":")
+            if codes[0] == ownManufacturerID { plugin.format = .proToolsBuiltIn; plugin.isHostBuiltIn = true }
+            found.append(plugin)
+        }
+        var doc = HostDocument(host: .proTools, savedWith: savedWith, savedVersion: savedVersion, plugins: HostDocument.merged(found))
+        if savedWith == nil { doc.warnings.append("The session does not say which Pro Tools version saved it.") }
+        return doc
+    }
+
+    /// The key-derived step of the scrambling table.
+    static func unscrambleDelta(key: UInt8, type: UInt8) -> UInt8 {
+        let mul = type == 1 ? 53 : 11
+        for i in 0..<256 where (i * mul) & 0xFF == Int(key) { return type == 1 ? UInt8(i) : UInt8(truncatingIfNeeded: -i) }
+        return 0
     }
 }

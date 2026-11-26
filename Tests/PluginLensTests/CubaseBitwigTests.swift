@@ -7,10 +7,11 @@ final class CubaseBitwigTests: XCTestCase {
     private func u32(_ n: Int) -> [UInt8] { [UInt8(n >> 24 & 255), UInt8(n >> 16 & 255), UInt8(n >> 8 & 255), UInt8(n & 255)] }
     private func tok(_ s: String) -> [UInt8] { [UInt8(s.utf8.count + 1)] + Array(s.utf8) + [0] }
     /// Layout of real Cubase projects (SX3 to 14): one-byte-length tokens at fixed distances after the `PAppVersion` and `Plugin UID` keys.
-    private func cubase(app: String = "Cubase", version: String = "10.5.20", plugins: [(guid: String, name: String)], original: [String: String] = [:], form: String = "RIFF") -> Data {
+    private func cubase(app: String = "Cubase", version: String = "10.5.20", plugins: [(guid: String, name: String)], original: [String: String] = [:], classes: [String: String] = [:], plumbing: Set<String> = ["Standard Panner", "Input Filter"], form: String = "RIFF") -> Data {
         var body: [UInt8] = Array("ROOT".utf8) + [0, 0, 0, 0x20] + Array("PAppVersion\0".utf8) + [UInt8](repeating: 0, count: form == "RIF2" ? 13 : 9)
         body += tok(app) + [0, 0, 0] + tok("Version \(version)") + [0, 0, 0] + tok("May  5 2020") + [UInt8](repeating: 0, count: 7) + tok("WIN64")
         for p in plugins {
+            if !plumbing.contains(p.name) { body += Array("Plugin isA\0".utf8) + [0, 0, 0, 0] + tok(classes[p.name] ?? "VstCtrlInternalEffect") + [0, 0, 0, 0] }
             body += Array("Plugin UID\0".utf8) + [UInt8](repeating: 0, count: 22) + tok(p.guid) + [0, 0, 0] + tok("Plugin Name") + [0, 0, 0, 0, 0] + tok(p.name) + [0, 0, 0]
             if let o = original[p.name] { body += tok("Original Plugin Name") + [0, 0, 0, 0, 0] + tok(o) }
             body += [UInt8](repeating: 0, count: 8)
@@ -49,12 +50,12 @@ final class CubaseBitwigTests: XCTestCase {
     func testCubaseListsPluginsAndSavingVersion() throws {
         let doc = try CubaseParser.parse(cubase(plugins: [
             ("D56B9C6CA4F946018EED73EB83A74B58", "Input Filter"), ("1234567890ABCDEF1234567890ABCDEF", "Standard Panner"),
-            ("AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD", "Mystic"), ("11111111222222223333333344444444", "FabFilter Pro-Q 4"),
+            ("AAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD", "EQ"), ("11111111222222223333333344444444", "FabFilter Pro-Q 4"),
             ("11111111222222223333333344444444", "FabFilter Pro-Q 4"),
-        ]))
+        ], classes: ["EQ": "VstCtrlEQ"]))
         XCTAssertEqual(doc.host, .cubase); XCTAssertEqual(doc.savedWith, "Cubase 10.5.20"); XCTAssertEqual(doc.savedVersion, "10.5.20")
-        XCTAssertEqual(doc.plugins.map(\.name), ["Mystic", "FabFilter Pro-Q 4"], "mixer plumbing is skipped and duplicates merge")
-        XCTAssertTrue(doc.plugins[0].isHostBuiltIn); XCTAssertEqual(doc.plugins[0].vendor, "Steinberg")
+        XCTAssertEqual(doc.plugins.map(\.name), ["EQ", "FabFilter Pro-Q 4"], "slotless entries (mixer plumbing) are skipped and duplicates merge")
+        XCTAssertTrue(doc.plugins[0].isHostBuiltIn, "a channel-strip class other than the insert class is a built-in module")
         XCTAssertEqual(doc.plugins[1].format, .vst3); XCTAssertEqual(doc.plugins[1].classID, "11111111222222223333333344444444"); XCTAssertEqual(doc.plugins[1].count, 2)
     }
 

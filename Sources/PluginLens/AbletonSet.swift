@@ -126,11 +126,11 @@ enum AbletonSetParser {
         var sawRoot = false
 
         private var path: [String] = []
-        private static let groups: Set<String> = ["AudioEffectGroupDevice", "InstrumentGroupDevice", "MidiEffectGroupDevice", "DrumGroupDevice"]
         private static let stateElements: Set<String> = ["Buffer", "ProcessorState", "ControllerState"]
         private static let infoElements: [String: AbletonDevice.Kind] = ["AuPluginInfo": .audioUnit, "VstPluginInfo": .vst, "Vst3PluginInfo": .vst3]
 
         // Current plugin device being captured.
+        private var builtInStack: [(index: Int, depth: Int, isContainer: Bool)] = []
         private var current: AbletonDevice?
         private var currentDepth = 0
         private var depths: [String: Int] = [:]
@@ -141,6 +141,7 @@ enum AbletonSetParser {
             if path.isEmpty, name == "Ableton" { sawRoot = true; creator = a["Creator"]; majorVersion = a["MajorVersion"] }
             let parent = path.last
             path.append(name)
+            if name == "Devices", !builtInStack.isEmpty, path.count > builtInStack[builtInStack.count - 1].depth { builtInStack[builtInStack.count - 1].isContainer = true }
 
             if current == nil, parent == "Devices" {
                 switch name {
@@ -148,8 +149,10 @@ enum AbletonSetParser {
                     current = AbletonDevice(kind: name == "AuPluginDevice" ? .audioUnit : .vst, name: ""); currentDepth = path.count; depths = [:]
                 case _ where name.hasPrefix("MxDevice"):
                     current = AbletonDevice(kind: .maxForLive, name: ""); currentDepth = path.count; depths = [:]
-                case _ where Self.groups.contains(name): break
-                default: devices.append(AbletonDevice(kind: .builtIn, name: name))
+                default:
+                    // A built-in device, unless it turns out to hold other devices (a rack): decided when a nested <Devices> shows up.
+                    devices.append(AbletonDevice(kind: .builtIn, name: name))
+                    builtInStack.append((devices.count - 1, path.count, false))
                 }
                 return
             }
@@ -169,6 +172,10 @@ enum AbletonSetParser {
 
         func parser(_ parser: XMLParser, didEndElement name: String, namespaceURI: String?, qualifiedName: String?) {
             defer { path.removeLast() }
+            if let top = builtInStack.last, top.depth == path.count {
+                builtInStack.removeLast()
+                if top.isContainer, top.index < devices.count { devices.remove(at: top.index) }
+            }
             guard current != nil else { return }
             if Self.stateElements.contains(name), capturingState {
                 capturingState = false

@@ -53,12 +53,19 @@ struct InstalledPluginIndex: Sendable {
     private var vstNames: [String: [PluginFormat: String]] = [:]
     var logicVersion: String?
     var abletonVersion: String?
+    /// Names of Logic's own plugins, read from the installed Logic app (empty if Logic isn't installed).
+    private(set) var logicPluginNames: [String] = []
+    /// Live's device element names mapped to the names Live shows ("Eq8" -> "EQ Eight"), read from the installed Live app.
+    private(set) var abletonDeviceNames: [String: String] = [:]
     /// Installed version of other host apps (REAPER, Waveform, Ardour, GarageBand, MainStage), by `Host`.
     private(set) var hostVersions: [Host: String] = [:]
     private(set) var liveDatabase = LiveDatabase()
 
     init(directories: SearchDirectories = .standard, logicVersion: String? = InstalledPluginIndex.detectLogicVersion(),
-         abletonVersion: String? = InstalledPluginIndex.detectAbletonVersion()) {
+         abletonVersion: String? = InstalledPluginIndex.detectAbletonVersion(),
+         logicPluginNames: [String]? = nil, abletonDeviceNames: [String: String]? = nil) {
+        self.logicPluginNames = logicPluginNames ?? Self.detectLogicPluginNames()
+        self.abletonDeviceNames = abletonDeviceNames ?? Self.detectAbletonDeviceNames()
         self.logicVersion = logicVersion
         self.abletonVersion = abletonVersion
         for h in Host.allCases where h != .logic && h != .ableton { if let v = Self.detectAppVersion(h) { hostVersions[h] = v } }
@@ -138,6 +145,96 @@ struct InstalledPluginIndex: Sendable {
                let r = v.range(of: #"\d+(\.\d+)+"#, options: .regularExpression) { return String(v[r]) }
         }
         return nil
+    }
+
+    // MARK: Names of a host's own plugins, read from the installed host app (never hard-coded)
+
+    static func appURL(bundleIDs: [String], namePrefix: String) -> URL? {
+        for id in bundleIDs { if let u = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) { return u } }
+        let apps = (try? FileManager.default.contentsOfDirectory(at: URL(fileURLWithPath: "/Applications"), includingPropertiesForKeys: nil)) ?? []
+        return apps.first { $0.pathExtension == "app" && $0.lastPathComponent.hasPrefix(namePrefix) }
+    }
+
+    /// Logic keeps one folder per plugin under `Library.bundle/Plug-In Settings`; the folder names are the plugins' full names.
+    static func detectLogicPluginNames() -> [String] {
+        guard let app = appURL(bundleIDs: ["com.apple.logic10", "com.apple.mobilelogic"], namePrefix: "Logic Pro") else { return [] }
+        let dir = app.appendingPathComponent("Contents/Resources/Library.bundle/Plug-In Settings")
+        let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.isDirectoryKey])) ?? []
+        return items.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }.map(\.lastPathComponent).sorted()
+    }
+
+    /// Logic stores built-in plugin names truncated and abbreviated ("Space D", "St-Delay", "SmpleDly"). Matches them to the full names found in the installed
+    /// Logic: exact, then a unique prefix, then the shortest name containing the stored letters in order (same first letter). Anything else stays as stored.
+    func logicDisplayName(forStored stored: String) -> String {
+        let want = Self.normalize(stored)
+        guard !want.isEmpty, !logicPluginNames.isEmpty else { return stored }
+        let table = logicPluginNames.map { ($0, Self.normalize($0)) }
+        if let exact = table.first(where: { $0.1 == want }) { return exact.0 }
+        let prefix = table.filter { $0.1.hasPrefix(want) }
+        func isSubsequence(_ small: String, of big: String) -> Bool {
+            var it = big.makeIterator()
+            for c in small { var found = false; while let n = it.next() { if n == c { found = true; break } }; if !found { return false } }
+            return true
+        }
+        let abbreviations = table.filter { $0.1.first == want.first && isSubsequence(want, of: $0.1) }
+        // A prefix match is trusted only if no other plugin could be what the abbreviation stands for ("Spread" could be "Spreader" or "Stereo Spread").
+        if !prefix.isEmpty {
+            if Set(prefix.map(\.0)) == Set(abbreviations.map(\.0)) || abbreviations.isEmpty, let best = prefix.min(by: { $0.1.count < $1.1.count }), prefix.filter({ $0.1.count == best.1.count }).count == 1 { return best.0 }
+            return stored
+        }
+        if let best = abbreviations.min(by: { $0.1.count < $1.1.count }), abbreviations.filter({ $0.1.count == best.1.count }).count == 1 { return best.0 }
+        return stored
+    }
+
+    /// Live's library has one folder per device, named as the device is shown ("Core Library/Devices/Audio Effects/EQ Eight/"), and every preset inside starts with the
+    /// device's element name as it appears in project files ("Eq8"). Reading one preset per folder gives the mapping, so it follows whatever Live version is installed.
+    static func detectAbletonDeviceNames() -> [String: String] {
+        guard let app = appURL(bundleIDs: ["com.ableton.live"], namePrefix: "Ableton Live") else { return [:] }
+        let library = app.appendingPathComponent("Contents/App-Resources/Core Library")
+        let fm = FileManager.default
+        var map: [String: String] = [:]
+        func rootElement(of url: URL) -> String? {
+            guard let data = try? Data(contentsOf: url, options: .mappedIfSafe), let xml = try? AbletonSetParser.gunzip(data) else { return nil }
+            let head = String(decoding: xml.prefix(1024), as: UTF8.self)
+            guard let r = head.range(of: #"<Ableton[^>]*>\s*<(\w+)"#, options: .regularExpression), let e = head[r].range(of: #"<(\w+)$"#, options: .regularExpression) else { return nil }
+            return String(head[r][e].dropFirst())
+        }
+        for category in ["Audio Effects", "Instruments", "MIDI Effects"] {
+            let dir = library.appendingPathComponent("Devices/\(category)")
+            for device in (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.isDirectoryKey])) ?? [] {
+                guard (try? device.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true, device.lastPathComponent != "Legacy", !device.lastPathComponent.hasPrefix("Ableton") else { continue }
+                guard let en = fm.enumerator(at: device, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { continue }
+                for case let url as URL in en where url.pathExtension == "adv" {
+                    if let el = rootElement(of: url) { map[el] = map[el] ?? device.lastPathComponent; break }
+                }
+            }
+        }
+        // Devices whose default preset is named after the device but that have no folder of presets.
+        if let en = fm.enumerator(at: library.appendingPathComponent("Defaults"), includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) {
+            for case let url as URL in en where url.pathExtension == "adv" {
+                if let el = rootElement(of: url), map[el] == nil, url.deletingLastPathComponent().lastPathComponent != "Dropping Samples" { map[el] = url.deletingPathExtension().lastPathComponent }
+            }
+        }
+        return map
+    }
+
+    /// The name Live shows for a device element; a readable form of the element name when Live isn't installed.
+    func abletonDisplayName(forElement element: String) -> String {
+        if let n = abletonDeviceNames[element] { return n }
+        return Self.humanize(element)
+    }
+
+    /// "OriginalSimpler" -> "Original Simpler", "8bandEq" -> "8 band Eq", "Compressor2" -> "Compressor".
+    static func humanize(_ identifier: String) -> String {
+        var out = "", prev: Character = " "
+        for c in identifier {
+            if (c.isUppercase && (prev.isLowercase || prev.isNumber)) || (c.isLetter && prev.isNumber) { out.append(" ") }
+            out.append(c); prev = c
+        }
+        var trimmed = out
+        while let l = trimmed.last, l.isNumber || l == " " { trimmed.removeLast() }   // trailing instance/version digits ("Compressor2")
+        let result = trimmed.isEmpty ? out : trimmed
+        return result.prefix(1).uppercased() + result.dropFirst()
     }
 
     /// Version of an installed app whose name starts with `namePrefix` ("Bitwig Studio" -> Bitwig Studio.app).
