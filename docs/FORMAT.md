@@ -228,3 +228,5 @@ Checked on one real Cubase 10.5.20 project and one real Bitwig Studio 5.3 projec
   ProjectData (`UCuA` nodes, reversed AU codes, the `GAME` marker for built-ins), so each strip is scanned with the Logic record reader (without requiring Logic's header) and the results are merged.
 - **DAWproject**: for plugins, `deviceName` is the plugin and `name` is the track-level label or preset (a Bitwig VST3 "TripleCheese" is labelled with its preset "Space Piano"). Bitwig writes `BuiltinDevice` for its own devices
   and `ClapPlugin`/`Vst3Plugin` with a `State` path to a `.vstpreset`.
+- **GarageBand (older layout, checked on a real project saved in 2013)**: `<name>.band/projectData` is an XML property list (`NSKeyedArchiver`, class `DfLogicModelLogicSong`). Its `<data>` entries start with the same `23 47 c0 ab` header as Logic's ProjectData and hold the same plugin records.
+  Each blob is scanned with the Logic record reader and the results are merged. `Output/metadata.plist` has track counts and tags but no plugin information.

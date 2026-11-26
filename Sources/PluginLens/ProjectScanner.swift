@@ -124,7 +124,7 @@ enum ProjectLoader {
         var warnings: [String] = []
         let ext = project.url.pathExtension.lowercased()
         if ext == "band" {
-            warnings.append("GarageBand projects are read with the Logic Pro parser. This is experimental and has not been checked against a real GarageBand project.")
+            warnings.append("GarageBand projects are read with the Logic Pro parser. This was checked against one real project saved by an older GarageBand (property-list layout) but not against current GarageBand versions.")
         }
         let info = readInfo(project.url)
         if let major = info.major, major > testedMajorVersion {
@@ -139,7 +139,7 @@ enum ProjectLoader {
         catch { return .failed(.unreadable(error.localizedDescription)) }
 
         let parsed: ParseResult
-        do { parsed = try ProjectDataParser.parse(data) }
+        do { parsed = try ProjectDataParser.parseAny(data) }
         catch let e as ProjectError { return .failed(e) }
         catch { return .failed(.corrupt(error.localizedDescription)) }
 

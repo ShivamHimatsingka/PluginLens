@@ -110,4 +110,10 @@ final class RealSamplesTests: XCTestCase {
         let r = try load("nuendo/ewige.npr")
         XCTAssertEqual(r.lastSavedFrom, "Nuendo 13.0.21"); XCTAssertEqual(r.plugins.map(\.name), ["EQ"]); XCTAssertEqual(r.plugins.first?.format, .dawBuiltIn)
     }
+
+    func testOlderGarageBandProject() throws {
+        let r = try load("garageband/Test.band")
+        XCTAssertEqual(r.plugins.map(\.name), ["Channel EQ", "Compressor", "Tape Delay", "Pt-Verb", "Ducker", "Sample Delay", "Multipressor", "Limiter"])
+        XCTAssertTrue(r.plugins.allSatisfy { $0.format == .builtIn })
+    }
 }

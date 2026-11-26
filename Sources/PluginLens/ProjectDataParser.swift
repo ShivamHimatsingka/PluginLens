@@ -64,6 +64,34 @@ enum ProjectDataParser {
         return ParseResult(records: records, warnings: [])
     }
 
+    /// Reads a `ProjectData` file in either layout: Logic's binary file, or the older GarageBand layout, an XML/binary property list
+    /// (an `NSKeyedArchiver` archive) whose `<data>` blobs each hold the same record format behind the same header.
+    static func parseAny(_ data: Data) throws -> ParseResult {
+        guard data.prefix(5) == Data("<?xml".utf8) || data.prefix(6) == Data("bplist".utf8) else { return try parse(data) }
+        guard let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) else {
+            throw ProjectError.corrupt("the project's property list could not be read")
+        }
+        var blobs: [Data] = []
+        func walk(_ v: Any) {
+            if let d = v as? Data { if d.count >= minimumSize, Array(d.prefix(4)) == magic { blobs.append(d) } }
+            else if let a = v as? [Any] { a.forEach(walk) }
+            else if let m = v as? [String: Any] { m.values.forEach(walk) }
+        }
+        walk(plist)
+        guard !blobs.isEmpty else { throw ProjectError.unsupportedFormat("the property list holds no project data blocks") }
+        var order: [String] = [], merged: [String: RawPluginRecord] = [:]
+        var warnings: [String] = []
+        for b in blobs {
+            let r = try parse(b)
+            warnings += r.warnings
+            for rec in r.records {
+                if var m = merged[rec.key] { m.count += rec.count; m.saved += rec.saved; merged[rec.key] = m }
+                else { order.append(rec.key); merged[rec.key] = rec }
+            }
+        }
+        return ParseResult(records: order.compactMap { merged[$0] }, warnings: warnings)
+    }
+
     // MARK: Record readers
 
     private static func audioUnitRecord(_ b: [UInt8], typeAt t: Int) -> RawPluginRecord? {

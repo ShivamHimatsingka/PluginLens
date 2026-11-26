@@ -42,7 +42,7 @@ Your DAW only tells you after it fails to load something. Plugin Lens answers up
 | Studio One | `.song` | A real Studio One 7.2 song (three VST2 plugins, with their four-character IDs). Studio One's own devices are recognised by structure. Older song layouts are read from a community description and are flagged as unverified. |
 | Pro Tools | `.ptx`, `.ptf`, `.pts` (normal session files); also `.txt` from Export Session Info as Text | Real sessions: plug-ins (AAX IDs, Avid built-ins), the saving Pro Tools version. The text export's plug-in table is covered by hand-written examples. |
 | MainStage | `.concert` | The 16 concerts MainStage ships with: plugins are read from every patch's channel strip, built-ins are named from the installed app. |
-| GarageBand | `.band` | **Experimental.** Read with the Logic parser on the assumption that they share its project format; no real GarageBand project was available. |
+| GarageBand | `.band` | One real project saved by an older GarageBand (the `projectData` property-list layout): 8 built-in plugins. The newer layout (`Alternatives/000/ProjectData`, like Logic's) is read the same way but was not checked against a real GarageBand 10 project. |
 
 Where a row says something wasn't checked, the support follows the format as documented and is covered by unit tests, and unrecognised content gives an error
 or an *uncertain* row, not a confident wrong answer. If a project is read wrongly, please open an issue (the DAW version and the first lines of the file are enough).
@@ -52,7 +52,7 @@ it exists. Cakewalk: no sample project could be found.
 
 ## Install
 
-1. Download `PluginLens-0.8.0-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
+1. Download `PluginLens-0.8.1-macOS.zip` from the [Releases](../../releases) page and unzip it. It is a universal build (Apple Silicon and Intel), macOS 14 or later.
 2. The app is ad-hoc signed and **not notarized**, so macOS will block the first launch. Right-click the app, choose **Open**, then **Open** again; or run:
 
    ```bash
@@ -129,7 +129,7 @@ Logic version and, if you can share it, the output of `xxd` on the first 128 byt
 
 ## Tests
 
-154 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
+157 unit tests: Logic parser (real-record fixtures plus synthetic, truncated, garbage and corrupt input), Ableton sets (gzip, XML, racks, VST3 class IDs, the Live database), REAPER/Waveform/Ardour projects, saved-version discovery, version lookup against fake plugin
 bundles in a temp folder (so results don't depend on your machine), discovery, per-project failure isolation, and exports.
 Fixtures in `Tests/Fixtures` are built by `Tools/make_fixtures.py`: only about 40 bytes per plugin record are kept; track names, text, plugin state and everything else
 are dropped (ProjectData never contains audio). `mixed_missing` has one manufacturer code rewritten so it is guaranteed not to be installed.

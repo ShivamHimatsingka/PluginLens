@@ -41,6 +41,7 @@
 		DCC6A2E844A01873ADCB90F6 /* ProjectDataParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A45478445CCB4F1CC7D37C2 /* ProjectDataParser.swift */; };
 		DEFA4EE07B155BABBAB5AB8A /* RealFormatsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACB0C2629858EA8C04E219F6 /* RealFormatsTests.swift */; };
 		F19BF2FC936926911FC39A9F /* RealProjectsCheckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 318AC632301BEC962E6ADCD1 /* RealProjectsCheckTests.swift */; };
+		F7D0D586BCABD10DAD4E64C2 /* GarageBandLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29F149C47365C3E9EDA4898F /* GarageBandLayoutTests.swift */; };
 		FA6349C0F658125847464243 /* PluginResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCF1F326FBC99AD11B5680AA /* PluginResolver.swift */; };
 		FE63831F72494E226F826AD2 /* ProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36F241701CB913651C624CB3 /* ProjectDetailView.swift */; };
 /* End PBXBuildFile section */
@@ -66,6 +67,7 @@
 		1A45478445CCB4F1CC7D37C2 /* ProjectDataParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDataParser.swift; sourceTree = "<group>"; };
 		2032F7DF470A348D4091F186 /* ZipArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZipArchive.swift; sourceTree = "<group>"; };
 		22FE35F6BDF969EFF4E6720A /* CubaseGroundTruthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CubaseGroundTruthTests.swift; sourceTree = "<group>"; };
+		29F149C47365C3E9EDA4898F /* GarageBandLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarageBandLayoutTests.swift; sourceTree = "<group>"; };
 		318AC632301BEC962E6ADCD1 /* RealProjectsCheckTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealProjectsCheckTests.swift; sourceTree = "<group>"; };
 		36F241701CB913651C624CB3 /* ProjectDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectDetailView.swift; sourceTree = "<group>"; };
 		3C43F797563A631D4409AFC3 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
@@ -122,6 +124,7 @@
 				B955E332BCBE4F3663731AE7 /* AbletonTests.swift */,
 				47D1110F41C28EA2E4848352 /* CubaseBitwigTests.swift */,
 				22FE35F6BDF969EFF4E6720A /* CubaseGroundTruthTests.swift */,
+				29F149C47365C3E9EDA4898F /* GarageBandLayoutTests.swift */,
 				60EAD513F956FD380ED27F53 /* HostFormatsTests.swift */,
 				5D2394ECDE4D680D0B283E8F /* MoreHostsTests.swift */,
 				A4C84F68C24AF012410F31DF /* ParserTests.swift */,
@@ -304,6 +307,7 @@
 				B43637857F3A6D50B31D6F52 /* AbletonTests.swift in Sources */,
 				05D073373AC7B8E5900177E0 /* CubaseBitwigTests.swift in Sources */,
 				CBEB2FBFAAC2668D423F6BFD /* CubaseGroundTruthTests.swift in Sources */,
+				F7D0D586BCABD10DAD4E64C2 /* GarageBandLayoutTests.swift in Sources */,
 				43380200B92009AA43ECE92E /* HostFormatsTests.swift in Sources */,
 				23C44616692B693F04338411 /* MoreHostsTests.swift in Sources */,
 				10D56AEFBB100A51B48F1D45 /* ParserTests.swift in Sources */,

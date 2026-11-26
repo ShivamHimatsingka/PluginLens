@@ -185,7 +185,7 @@ final class HostFormatsTests: XCTestCase {
         try RecordBuilder.project([rec]).write(to: band.appendingPathComponent("projectData"))
         let state = ProjectLoader.load(DiscoveredProject(url: tmp.appendingPathComponent("Song.band"), kind: .logicx), index: idx())
         guard case .loaded(let r) = state else { return XCTFail("\(state)") }
-        XCTAssertEqual(r.plugins.count, 1); XCTAssertTrue(r.warnings.contains { $0.contains("experimental") })
+        XCTAssertEqual(r.plugins.count, 1); XCTAssertTrue(r.warnings.contains { $0.contains("GarageBand") })
     }
 
     func testBandPackageWithoutProjectDataFailsCleanly() throws {
